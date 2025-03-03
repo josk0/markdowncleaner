@@ -15,6 +15,8 @@ class CleanerOptions:
     min_line_length: int = 70
     remove_whole_lines: bool = True
     remove_sections: bool = True
+    remove_duplicate_headlines: bool = True
+    remove_duplicate_headlines_threshold: int = 2
     remove_footnotes_in_text: bool = True
     replace_within_lines: bool = True
     remove_within_lines: bool = True
@@ -104,7 +106,11 @@ class MarkdownCleaner:
         if self.options.remove_sections:
             for title in self.patterns.sections_to_remove:
                 content = self._remove_sections(content, title)
-
+        
+        # Remove duplicate headlines
+        if self.options.remove_duplicate_headlines:
+            content = self._remove_duplicate_headlines(content, self.options.remove_duplicate_headlines_threshold)
+        
         # Replace strings for string
         if self.options.replace_within_lines:
             for k, v in self.patterns.replacements.items():

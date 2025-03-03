@@ -69,6 +69,12 @@ def parse_args(args: Optional[List[str]] = None) -> argparse.Namespace:
     )
 
     parser.add_argument(
+        "--keep-duplicate-headlines",
+        action="store_true",
+        help="Don't remove headlines that occur multiple times in text"
+    )
+
+    parser.add_argument(
         "--keep-footnotes",
         action="store_true",
         help="Don't remove footnote references in text"
@@ -111,6 +117,7 @@ def main(args: Optional[List[str]] = None) -> int:
     options.min_line_length = parsed_args.min_line_length
     options.remove_whole_lines = not parsed_args.keep_bad_lines
     options.remove_sections = not parsed_args.keep_sections
+    options.remove_duplicate_headlines = not parsed_args.keep_duplicate_headlines
     options.remove_footnotes_in_text = not parsed_args.keep_footnotes
     options.replace_within_lines = not parsed_args.no_replacements
     options.remove_within_lines = not parsed_args.keep_inline_patterns

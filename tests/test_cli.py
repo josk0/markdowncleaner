@@ -35,6 +35,7 @@ class TestCLI(unittest.TestCase):
             '--min-line-length', '50',
             '--keep-bad-lines',
             '--keep-sections',
+            '--keep-duplicate-headlines',
             '--keep-footnotes',
             '--no-replacements',
             '--keep-inline-patterns',
@@ -50,6 +51,7 @@ class TestCLI(unittest.TestCase):
         self.assertEqual(args.min_line_length, 50)
         self.assertTrue(args.keep_bad_lines)
         self.assertTrue(args.keep_sections)
+        self.assertTrue(args.keep_duplicate_headlines)
         self.assertTrue(args.keep_footnotes)
         self.assertTrue(args.no_replacements)
         self.assertTrue(args.keep_inline_patterns)
