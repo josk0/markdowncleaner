@@ -6,12 +6,13 @@ A simple Python tool for cleaning and formatting markdown documents. Default con
 
 `markdowncleaner` helps you clean up markdown files by removing unwanted content such as:
 - References, bibliographies, and citations
-- Footnotes and endnotes
+- Footnotes and endnote references in text
 - Copyright notices and legal disclaimers
 - Acknowledgements and funding information
 - Author information and contact details
 - Specific patterns like DOIs, URLs, and email addresses
 - Short lines and excessive whitespace
+- Duplicate headlines (for example, because paper title and author names were reprinted on every page of a PDF)
 
 This tool is particularly useful for processing academic papers, books, or any markdown document that needs formatting cleanup.
 
@@ -50,6 +51,7 @@ from markdowncleaner import MarkdownCleaner, CleanerOptions
 options = CleanerOptions()
 options.remove_short_lines = True
 options.min_line_length = 50  # custom minimum line length
+options.remove_duplicate_headlines = False 
 options.remove_footnotes_in_text = True
 options.contract_empty_lines = True
 
@@ -89,6 +91,8 @@ The default cleaning patterns are defined in `default_cleaning_patterns.yaml` an
 - `remove_short_lines`: Remove lines shorter than `min_line_length` (default: 70 characters)
 - `remove_whole_lines`: Remove lines matching specific patterns
 - `remove_sections`: Remove entire sections based on section headings
+- `remove_duplicate_headlines`: Remove duplicate headlines based on threshold
+- `remove_duplicate_headlines_threshold`: Threshold for duplicate headline removal
 - `remove_footnotes_in_text`: Remove footnote references
 - `replace_within_lines`: Replace specific patterns within lines
 - `remove_within_lines`: Remove specific patterns within lines
