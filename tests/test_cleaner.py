@@ -92,7 +92,92 @@ class TestMarkdownCleaner(unittest.TestCase):
         self.assertTrue("Normal Line 1." in result)
         self.assertTrue(". A Funny line" in result)
         self.assertFalse(".1 Footnote" in result)
+
+    def test_remove_duplicate_headlines(self):
+        """Test all headline removal scenarios in a single test function."""
+        # Test with an empty string
+        self.assertEqual(self.cleaner._remove_duplicate_headlines(""), "")
         
+        # Test with text that contains no headlines
+        text_no_headlines = "This is just regular text\nwith no headlines at all."
+        self.assertEqual(self.cleaner._remove_duplicate_headlines(text_no_headlines), text_no_headlines)
+        
+        # Test with text that contains unique headlines
+        text_unique = "# Headline 1\nSome content\n## Headline 2\nMore content\n# Headline 3"
+        self.assertEqual(self.cleaner._remove_duplicate_headlines(text_unique), text_unique)
+        
+        # Test with text that contains duplicate headlines
+        text_duplicate = "# Duplicate\n" +\
+                        "Content 1\n" +\
+                        "# Unique\nContent 2\n" +\
+                        "# Duplicate\n" +\
+                        "Content 3"
+        expected_duplicate = "Content 1\n" +\
+                        "# Unique\n" +\
+                        "Content 2\n" +\
+                        "Content 3"
+        self.assertEqual(self.cleaner._remove_duplicate_headlines(text_duplicate), expected_duplicate)
+        
+        # Test with empty lines 
+        text_with_empty_lines = "# Duplicate\n" +\
+                        "\n" +\
+                        "Content 1\n" +\
+                        "# Unique\n" +\
+                        "Content 2\n" +\
+                        "\n" +\
+                        "\n" +\
+                        "# Duplicate\n" +\
+                        "Content 3"
+        expected_with_empty_lines = "\n" +\
+                        "Content 1\n" +\
+                        "# Unique\n" +\
+                        "Content 2\n" +\
+                        "\n" +\
+                        "\n" +\
+                        "Content 3"
+        self.assertEqual(self.cleaner._remove_duplicate_headlines(text_with_empty_lines), expected_with_empty_lines)
+        
+        # Test with different headline levels where some are duplicates
+        text_mixed_levels = "# Level 1\n" +\
+                            "Content\n" +\
+                            "## Level 2\n" +\
+                            "More content\n" +\
+                            "# Level 1\n" +\
+                            "More content\n" +\
+                            "### Level 3"
+        expected_mixed_levels = "Content\n" +\
+                            "## Level 2\n" +\
+                            "More content\n" +\
+                            "More content\n" +\
+                            "### Level 3"
+        self.assertEqual(self.cleaner._remove_duplicate_headlines(text_mixed_levels), expected_mixed_levels)
+
+        # Test with multiple sets of duplicate headlines
+        text_multiple_dups = "# H1\n" +\
+                            "A\n" +\
+                            "## H2\n" +\
+                            "B\n" +\
+                            "# H1\n" +\
+                            "C\n" +\
+                            "## H2\n" +\
+                            "D\n" +\
+                            "### H3\n" +\
+                            "E"
+        expected_multiple_dups = "A\n" +\
+                            "B\n" +\
+                            "C\n" +\
+                            "D\n" +\
+                            "### H3\n" +\
+                            "E"
+        self.assertEqual(self.cleaner._remove_duplicate_headlines(text_multiple_dups), expected_multiple_dups)
+        
+        # Test that headline matching is case-sensitive
+        text_case = "# Headline\n" +\
+                    "Content\n" +\
+                    "# headline\n" +\
+                    "More content"
+        self.assertEqual(self.cleaner._remove_duplicate_headlines(text_case), text_case)
+
     def test_crimp_linebreaks(self):
         text = "This line ends \nwith an awkward break."
         result = self.cleaner._crimp_linebreaks(text)

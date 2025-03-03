@@ -308,6 +308,50 @@ class MarkdownCleaner:
         # Return the modified markdown, preserving original line endings
         return '\n'.join(result_lines)
 
+    def _remove_duplicate_headlines(self, markdown_text: str, threshold: Optional[int] = 1) -> str:
+        """
+        Find all headlines in a markdown string that occur more than threshold times (default: once)
+        and remove all instances of such headlines.
+
+        Args:
+            markdown_text (str): The markdown text to process
+            threshold (Optional[int]): The minimum number of occurrences to consider a duplicate
+
+        Returns:
+            str: The markdown text with duplicate headlines removed
+        """
+        # Split the text into lines
+        lines = markdown_text.splitlines()
+
+        # Identify headline lines (lines starting with #)
+        headline_lines = []
+        headline_indices = []
+
+        for i, line in enumerate(lines):
+            stripped_line = line.strip()
+            if stripped_line and stripped_line.startswith('#'):
+                headline_lines.append(stripped_line)
+                headline_indices.append(i)
+
+        # Find headlines that occur more than once
+        headline_counts = {}
+        for headline in headline_lines:
+            headline_counts[headline] = headline_counts.get(headline, 0) + 1
+
+        duplicate_headlines = {headline for headline, count in headline_counts.items() if count > threshold}
+
+        # Create a new list of lines, excluding the duplicate headlines
+        filtered_lines = []
+        for i, line in enumerate(lines):
+            stripped_line = line.strip()
+            if stripped_line and stripped_line.startswith('#') and stripped_line in duplicate_headlines:
+                continue  # Skip duplicate headlines
+            else:
+                filtered_lines.append(line)
+
+        # Join the lines back together
+        return '\n'.join(filtered_lines)
+
     def _crimp_linebreaks(self, markdown_text: str) -> str:
         """
         Fix line break errors in markdown text converted from PDF.
