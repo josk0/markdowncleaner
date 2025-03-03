@@ -1,0 +1,296 @@
+sections_to_remove:
+  - |-
+    Acknowledge?ments?\s?$
+  - Declaration of Competing Interest
+  - Declaration of Conflicting Interests
+  - Funding
+  - Endnotes
+  - Credit authorship contribution statement
+  - |-
+    ACM\s?Reference\?Format
+  - Contributors
+  - CCS CONCEPTS
+  - pdf version of the entry
+  - |-
+    Correspondence\s?$
+  - Funding information
+  - ORCID
+  - RESEARCH ARTICLE
+  - Compliance with Ethical Standards
+  - License
+  - |-
+    Index\s?$
+  - |-
+    References\s?\.?$
+  - |-
+    \s?\d{1,2}\.\s*References\s?$
+  - |-
+    Bibliography\s?
+  - |-
+    ^\s?Notes\s?\:?\.?$
+  - Works Cited
+  - Author Biographies
+  - Author Biography
+  - About the author
+  - Oxford Scholarship Online
+  - University Press Scholarship Online
+  - Corresponding author
+  - |-
+    ^Appendix\*
+  - Contents
+  - Table of Contents
+  - List of Figures
+  - List of Tables
+  - List of Illustrations
+  - |-
+    ^\s?Keywords\s?\.?$
+  - Authors' Note
+  - |-
+    ^[a-zA-Z0-9]+-[a-zA-Z0-9]+-?[a-zA-Z0-9]+[^\s]*$
+  - |-
+    Dedication\:?$
+  - Citing this paper
+  - General rights
+  - Disclosure statement
+  - PLEASE SCROLL DOWN FOR ARTICLE
+  - About the Contributors
+  - List of Key Terms
+  - |-
+    Citations\:
+  - |-
+    Provided by\:
+  - |-
+    Published by\:
+  - Preface
+
+# Patterns for inline text that should be removed
+bad_inline_patterns:
+  - |-
+    \[\d{1,3}(?:\s*,\s*\d{1,3})*\]
+  - |-
+    \(see.*?\)
+  - |-
+    \(Figure\s*.*?\)
+  - |-
+    \(Table\s*.*?\)
+  - |-
+    \(Section\s*.*?\)
+  - |-
+    \(Chapter\s*.*?\)
+  - |-
+    \* 1 ,
+  - |-
+    \(p\.?\d{1,3}\)
+
+# Patterns for entire lines that should be removed
+bad_lines_patterns:
+  # Copyright and legal
+  - |-
+    (?m)^.*?\b[Aa]ll [Rr]ights [Rr]eserved\..*?$|.*?\b[Aa]ll [Rr]ights [Rr]eserved\.$
+  - |-
+    Copyright \d{4} by
+  - |-
+    ^#{1,3} ORIGINAL RESEARCH$
+  - |-
+    ^#{1,3} ORIGINAL ARTICLE$
+  - |-
+    ^[A-Z\s]+$
+  - |-
+    <!--.*?-->
+  - |-
+    ^- (\d{1,3})?\.
+  - |-
+    ^Received:
+  - |-
+    ^\(Received
+  - |-
+    Received.*?(\d{4}).*?(accepted|Accepted).*
+  - |-
+    doi:
+  - |-
+    10\.\d{4,9}/[-._;()/:\w]+
+  - Digital Object Identifier
+  - |-
+    ^[Kk]eywords
+  - |-
+     ^Conflict of Interest
+  - ^Library of Congress
+  - ^Open Access
+  - ^OpenAccess
+  - ^Department of
+  - |-
+   ^[A-Z][a-zA-Z]+ University Press, Inc
+  - |-
+    ^Author\(s\):
+  - ^Acknowledgements
+  - ^Acknowledgments
+  - ^Funding Statement
+  - ^Table of Contents
+  - |-
+    ^Source:
+  - |-
+    ^Published by
+  - |-
+   ^CCS Concepts
+  - ISSN
+  - ISBN
+  - |-
+    arxiv:
+  - JSTOR
+  - Contributed Paper
+  - |-
+    ^Fig\.
+  - |-
+    ^\s?Figure\s?\d{1,2}\s?[.:]
+  - |-
+    ^\s?Table\s?\d{1,2}\s?[.:]
+  - ^First published
+  - |-
+    National Science Foundation\s*\(NSF\).*?[Gg]rant.*?\d{4,}
+  - |-
+    [Gg]rant\s*[Nn]umber\s*\d{4,}
+  - |-
+    [A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}
+  - |-
+    \{\s*[\w,\s]+\s*\}\s*@\s*[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}
+  - |-
+    https?://?[^\s]+
+  - ©
+  - ®
+  - ™
+  - |-
+    c \d{4}
+  - |-
+    ^\d{1,3}\s?.\s?[Ss]ee
+  - |-
+    ^\-\s?\d{1,3}\s?.\s?[Ss]ee
+  - |-
+    ^\d{1,2}[A-Za-z]+
+  - |-
+    ^#{1,3}[\d\s]+$
+  - |-
+    ^[^/]*(/[^/]*){5,}
+  - †
+  - ‡
+  - |-
+    ^\d{1,3}.*supra note
+  - |-
+    ^\d{1,3}.*\(\d{4}\)
+  - |-
+    ^\d{1,3}.*cf
+  - |-
+    ^\d{1,3}.\s?Id\.
+  - |-
+    (?:.*?GLYPH\&lt){3,}.*
+  - on previous versions of this
+  - |-
+    ^We are grateful for
+  - |-
+    ^I am grateful
+  - |-
+    ^Subject:
+  - open access article under the terms of the Creative Commons
+  - |-
+    Key words:
+  - |-
+    Published online:
+  - |-
+    Correspondence:
+  - |-
+    Print Publication Date:
+  - |-
+    Accepted:
+  - |-
+    This article was downloaded by:
+  - This content downloaded from
+  - |-
+    Registered office:
+  - |-
+    DATE DOWNLOADED:
+  - NBER working papers are circulated
+  - FirstView Article
+  - Published in
+  - Published online
+  - Typeset by
+  - All rights reserved
+  - No portion of this publication may be reproduced
+  - authors have asserted their rights to be identified as the authors
+  - material in this work has been asserted in accordance
+  - imprint of Macmillan Publishers
+  - A catalogue record for this book is available
+  - Your use of this HeinOnline
+  - obtain permission to use this article
+  - This article is published with open access
+  - Links to third party websites
+  - Registered in England and Wales
+  - |-
+    \*I thank
+  - |-
+    \*We thank
+  - |-
+    \*For comments
+  - |-
+    \*I would like to thank
+  - |-
+    \*We would like to thank
+  - |-
+    \*Thanks to
+  - |-
+    \*\s?This article is
+  - I am grateful for
+  - Oxford University Press is a department of
+  - a registered trademark of
+  - Published in the United States
+  - Printed in the United States
+  - The paper used in this publication
+  - Trademark notice
+  - 1 Department of
+  - catalogue recordfor this publication
+  - An earlier version of this paper was
+  - Springer International Publishing AG
+  - part of Springer Nature
+  - This work is subject to copyright.
+  - permission to reuse the copyright
+  - distributed under the terms of a Creative Commons
+  - |-
+    , [A-Z]{2} \d{5}(?:-\d{4})?,
+
+# Footnotes
+# Pattern matches:
+# 1. A period
+# 2. Optional space
+# 3. 1-3 digits
+# 4. Optionally followed by comma and space and more 1-3 digit numbers
+# 5. This pattern repeats for any number of comma-separated numbers
+# 6. Followed by either end of string, whitespace, or newline
+footnote_patterns:
+  - |-
+    \.\s?(\d{1,3}(?:,\s*\d{1,3})*?)(?=\s|$)
+
+replacements:
+  'GLYPH&lt;28&gt;': 'fi'
+  'GLYPH&lt;29&gt;': 'fl'
+  'GLYPH&lt;3&gt;': '*'
+  'GLYPH&lt;21&gt;': '-'
+  'GLYPH&lt;22&gt;': '—'
+  'GLYPH&lt;15&gt;': '-'
+  'GLYPH&lt;129&gt;': '-'
+  'GLYPH&lt;133&gt;': 'fi'
+  'GLYPH<28>': 'fi'
+  'GLYPH<29>': 'fl'
+  'GLYPH<3>': '*'
+  'GLYPH<21>': '-'
+  'GLYPH<22>': '—'
+  'GLYPH<15>': '•'
+  '/uniFB01': 'fi'
+  '/uniFB03': 'ffi'
+  '/uniFB00': 'ff'
+  '/uniFB02': 'fl'
+  'GLYPH<146>': 'Š'
+  'GLYPH<228>': 'ä'
+  'GLYPH<252>': 'ü'
+  'GLYPH<237>': 'í'
+  'GLYPH<2>': 'Š'
+  '/ornm58.ornm': ''
+  '/ornm69.ornm': ''
+  '&amp;': '&'

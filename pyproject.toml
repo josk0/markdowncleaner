@@ -1,0 +1,51 @@
+[build-system]
+requires = ["setuptools>=42", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "markdowncleaner"
+version = "0.1.1"
+description = "A tool for cleaning and formatting markdown documents"
+readme = "README.md"
+authors = [
+    {name = "Johannes Himmelreich", email = "jrhimmel@syr.edu"}
+]
+license = {text = "MIT"}
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Topic :: Text Processing :: Markup :: Markdown",
+    "Topic :: Utilities",
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Science/Research",
+]
+keywords = ["markdown", "cleaning", "formatting", "text processing"]
+dependencies = [
+    "pyyaml>=6.0",
+    "ftfy>=6.0.3",
+]
+requires-python = ">=3.8"
+
+[project.urls]
+"Repository" = "https://github.com/josk0/markdowncleaner"
+"Issues" = "https://github.com/josk0/markdowncleaner/issues"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+include-package-data = true
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+markdowncleaner = ["config/*.yaml"]
+
+[project.scripts]
+markdowncleaner = "markdowncleaner.cli:main"
