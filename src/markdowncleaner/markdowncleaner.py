@@ -4,9 +4,24 @@ from typing import Pattern, Optional
 import logging
 import re
 import ftfy
+
+from constants import *
+from markdown_it import MarkdownIt                 # parses & re-renders Markdown :contentReference[oaicite:1]{index=1}
+from symspellpy import SymSpell, Verbosity         # spell/segment fixes     :contentReference[oaicite:2]{index=2}
+from deepmultilingualpunctuation import PunctuationModel  # punctuation restore :contentReference[oaicite:3]{index=3}
+from mdformat.renderer import MDRenderer   # NEW ✔
+import mdformat
+
+from importlib.resources import files
+
 from markdowncleaner.config.loader import get_default_patterns, CleaningPatterns
 
 _logger = logging.getLogger(__name__)
+
+
+def data_path():
+    return files("markdowncleaner").joinpath("data", "frequency_dictionary_en_82_765.txt")
+
 
 @dataclass
 class CleanerOptions:
@@ -22,6 +37,8 @@ class CleanerOptions:
     remove_within_lines: bool = True
     contract_empty_lines: bool = True
     crimp_linebreaks: bool = True
+    restore_punctuations: bool = True
+    clean_ocr: bool = True
 
 
 class MarkdownCleaner:
@@ -36,6 +53,12 @@ class MarkdownCleaner:
         """
         self.patterns = patterns or get_default_patterns()
         self.options = options or CleanerOptions()
+
+        self.SYM = SymSpell(max_dictionary_edit_distance=2, prefix_length=7)
+        self.SYM.load_dictionary(data_path(), term_index=0, count_index=1)
+        self.PUNCT_MODEL = PunctuationModel()
+
+
 
     def clean_markdown_file(self,
                             input_file: Path,
@@ -58,7 +81,8 @@ class MarkdownCleaner:
 
         # Apply cleaning operations
         cleaned_content = self.clean_markdown_string(cleaned_content)
-
+        if self.options.clean_ocr:
+            cleaned_content = self.clean_markdown_ocr(cleaned_content)
         if output_file is not None:
             cleaned_filepath = Path(output_file)
             # Ensure parent directory exists
@@ -420,3 +444,68 @@ class MarkdownCleaner:
             i += 1  # Move to the next line
         
         return '\n'.join(result_lines)
+
+    def dehyphenate(self, md: str) -> str:
+        """
+        Dehyphens markdown text and filters out control characters.
+        """
+        # de-hyphenate split words
+        md = re.sub(r'(\w)-\n(\w)', r'\1\2', md)
+
+        # build a translation table that deletes control chars **except** \t, \n, \r
+        ctrl_to_delete = {
+            c: None
+            for c in range(32)
+            if c not in (9, 10, 13)  # 9 = \t, 10 = \n, 13 = \r
+        }
+        md = md.translate(ctrl_to_delete)
+        return md
+
+    def restore_punct(self, text: str) -> str:
+        """Restores punctuation."""
+        return self.PUNCT_MODEL.restore_punctuation(text)
+
+    def process_inline_block(self, inline):
+        """
+        Fixes duplicate short words, runs SymSpell and punctuation once for the
+        entire inline container, then writes the text back into the original
+        child-tokens (preserving markup positions).
+        """
+        # gather pure-text children
+        txt_nodes = [t for t in inline.children if t.type == "text"]
+        if not txt_nodes:
+            return
+
+        joined = SENT_DELIM.join(t.content for t in txt_nodes)
+
+        #  kill short duplicates ("Th Th e"→"Th e")
+        joined = _DUP_RE.sub(r"\1 ", joined)
+
+        # SymSpell (case-sensitive)  -----------------------------\
+        try:
+            joined = self.SYM.lookup_compound(joined, max_edit_distance=2,
+                                         transfer_casing=True)[0].term
+            joined = self.SYM.word_segmentation(joined).corrected_string
+        except:
+            pass
+
+        if self.options.restore_punctuations:
+            joined = self.PUNCT_MODEL.restore_punctuation(joined)
+
+        parts = joined.split(SENT_DELIM)
+        for node, seg in zip(txt_nodes, parts):
+            node.content = seg
+
+
+    def clean_markdown_ocr(self, raw_md: str) -> str:
+        """Cleans markdown text from OCR-related issues and renders it back."""
+        raw_md = self.dehyphenate(raw_md)
+        md = MarkdownIt()
+        tokens = md.parse(raw_md)
+
+        for tok in tokens:
+            if tok.type == "inline" and tok.type not in SKIP_TYPES:
+                self.process_inline_block(tok)
+        env = {"md": md, "lines": raw_md.splitlines(True)}
+        pretty = mdformat.text(MDRenderer().render(tokens, {}, env))
+        return pretty
