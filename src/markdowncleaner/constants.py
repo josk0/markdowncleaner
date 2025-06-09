@@ -8,7 +8,7 @@ SHORT_DUP_RE = re.compile(
             rf"\b([A-Za-z]{{1,3}})(?:\s*{SENT_DELIM}\s*|\s+)+\1\b",  # ← sentinel counts as space
             flags=re.I)
 
-_DUP_RE = re.compile(
+DUP_RE = re.compile(
     rf"""
     \b([A-Za-z]{{1,3}})            # short word (capture = \1)
     (?:\s*|{SENT_DELIM})+          # any mix of spaces or sentinel(s)
@@ -17,4 +17,19 @@ _DUP_RE = re.compile(
     """,
     re.IGNORECASE | re.VERBOSE,
 )
+
+BRACKET_RE = re.compile(
+    r"""(
+        \[[^\[\]]*]               |   # [ … ]
+        \([^)]+\)                 |   # ( … )
+        \{[^}]+\}                 |   # { … }
+        "[^"\n]*"                 |   # " … "
+        '[^'\n]*'                 |   # ' … '
+        “[^”\n]*”                 |   # “ … ”
+        ‘[^’\n]*’                     # ‘ … ’
+    )""",
+    re.VERBOSE,
+)
+
+IGNORE_RE = re.compile(rf"(?:[^\w\s{SENT_DELIM}]+|\d+)")   # for word_segmentation
 

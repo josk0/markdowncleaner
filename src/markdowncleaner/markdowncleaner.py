@@ -11,6 +11,7 @@ from symspellpy import SymSpell, Verbosity         # spell/segment fixes     :co
 from deepmultilingualpunctuation import PunctuationModel  # punctuation restore :contentReference[oaicite:3]{index=3}
 from mdformat.renderer import MDRenderer   # NEW ✔
 import mdformat
+import spacy
 
 from importlib.resources import files
 
@@ -57,7 +58,7 @@ class MarkdownCleaner:
         self.SYM = SymSpell(max_dictionary_edit_distance=2, prefix_length=7)
         self.SYM.load_dictionary(data_path(), term_index=0, count_index=1)
         self.PUNCT_MODEL = PunctuationModel()
-
+        self.NLP = spacy.load("en_core_web_sm")
 
 
     def clean_markdown_file(self,
@@ -445,10 +446,8 @@ class MarkdownCleaner:
         
         return '\n'.join(result_lines)
 
-    def dehyphenate(self, md: str) -> str:
-        """
-        Dehyphens markdown text and filters out control characters.
-        """
+    def _preclean(self, md):
+        """Dehyphenates markdown text. Removes control characters."""
         # de-hyphenate split words
         md = re.sub(r'(\w)-\n(\w)', r'\1\2', md)
 
@@ -461,51 +460,87 @@ class MarkdownCleaner:
         md = md.translate(ctrl_to_delete)
         return md
 
-    def restore_punct(self, text: str) -> str:
+    def _sentence_case(self, text):
+        """Restores case of the first letter of the sentence. Used after punctuation was restored."""
+        text = re.sub(r"^\s*([a-z])", lambda m: m.group(1).upper(), text)
+
+        def _repl(m):
+            return m.group(1) + m.group(2).upper()
+
+        text = re.sub(r"([.!?]['”’\")\]]*\s+)([a-z])", _repl, text)
+        return text
+
+    def _split_on_ner(self, text):
+        """Splits text on NER tags to prevent autocorrection of the named entities."""
+        doc = self.NLP(text)
+        parts = []
+        last = 0
+        for ent in doc.ents:
+            if ent.start_char > last:
+                parts.append(("clean", text[last:ent.start_char]))
+            parts.append(("keep", ent.text))
+            last = ent.end_char
+        if last < len(text):
+            parts.append(("clean", text[last:]))
+        return parts
+
+    def _clean_piece(self, piece):
+        """Run text-cleaning pipeline on *one* piece of text."""
+        try:
+            piece = self.SYM.lookup_compound(
+                piece, max_edit_distance=1,
+                transfer_casing=True, ignore_non_words=True
+            )[0].term
+        except:
+            pass
+        if not piece.strip():
+            return piece
+        piece = self.SYM.word_segmentation(piece, ignore_token=IGNORE_RE).corrected_string
+        return piece
+
+    def _restore_punct(self, text):
         """Restores punctuation."""
         return self.PUNCT_MODEL.restore_punctuation(text)
 
-    def process_inline_block(self, inline):
-        """
-        Fixes duplicate short words, runs SymSpell and punctuation once for the
-        entire inline container, then writes the text back into the original
-        child-tokens (preserving markup positions).
-        """
-        # gather pure-text children
+    def _process_inline_block(self, inline):
+        """Aggressively cleans block of the Markdown, using Named Entity Recognition"""
         txt_nodes = [t for t in inline.children if t.type == "text"]
         if not txt_nodes:
             return
 
-        joined = SENT_DELIM.join(t.content for t in txt_nodes)
+        for node in txt_nodes:
+            deduped = DUP_RE.sub(r"\1 ", node.content)
+            outer_parts = re.split(BRACKET_RE, deduped)
 
-        #  kill short duplicates ("Th Th e"→"Th e")
-        joined = _DUP_RE.sub(r"\1 ", joined)
+            final_parts = []  # will accumulate cleaned + kept chunks
 
-        # SymSpell (case-sensitive)  -----------------------------\
-        try:
-            joined = self.SYM.lookup_compound(joined, max_edit_distance=2,
-                                         transfer_casing=True)[0].term
-            joined = self.SYM.word_segmentation(joined).corrected_string
-        except:
-            pass
-
-        if self.options.restore_punctuations:
+            for idx, outer in enumerate(outer_parts):
+                if idx % 2 == 1:  # this is a bracketed reference
+                    # print("KEEP BRACKETS :", outer)
+                    final_parts.append(outer)
+                    continue
+                for kind, chunk in self._split_on_ner(outer):
+                    if kind == "keep":
+                        # print("KEEP  NER     :", chunk)
+                        final_parts.append(chunk)
+                    else:
+                        cleaned = self._clean_piece(chunk)
+                        # cleaned =  PUNCT_MODEL.restore_punctuation(cleaned)
+                        final_parts.append(cleaned)
+            joined = " ".join(final_parts)
             joined = self.PUNCT_MODEL.restore_punctuation(joined)
+            joined = self._sentence_case(joined)
+            node.content = joined
 
-        parts = joined.split(SENT_DELIM)
-        for node, seg in zip(txt_nodes, parts):
-            node.content = seg
-
-
-    def clean_markdown_ocr(self, raw_md: str) -> str:
-        """Cleans markdown text from OCR-related issues and renders it back."""
-        raw_md = self.dehyphenate(raw_md)
+    def clean_markdown_ocr(self, raw_md):
+        raw_md = self._preclean(raw_md)
         md = MarkdownIt()
         tokens = md.parse(raw_md)
 
+        # process **each inline container once**
         for tok in tokens:
             if tok.type == "inline" and tok.type not in SKIP_TYPES:
-                self.process_inline_block(tok)
+                self._process_inline_block(tok)
         env = {"md": md, "lines": raw_md.splitlines(True)}
         pretty = mdformat.text(MDRenderer().render(tokens, {}, env))
         return pretty
