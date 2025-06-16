@@ -182,6 +182,17 @@ class TestMarkdownCleaner(unittest.TestCase):
         text = "This line ends \nwith an awkward break."
         result = self.cleaner._crimp_linebreaks(text)
         self.assertEqual(result, "This line ends with an awkward break.")
+
+    def test_merged_words(self):
+        text = "# Introduction\n This is th th e line that is offi cially breaking words, and this line is a very long one " + \
+               "(Bernard et al, Mister et al).\n" + \
+               "Final additional line."
+        result = self.cleaner.clean_markdown_string(text)
+        result = self.cleaner.clean_markdown_ocr(result)
+        self.assertIn("the", result)
+        self.assertNotIn("th th", result)
+        self.assertIn("officially", result)
+        self.assertIn("(Bernard et al, Mister et al)", result)
         
     def test_clean_markdown_file(self):
         # Create a test markdown file
@@ -202,6 +213,7 @@ class TestMarkdownCleaner(unittest.TestCase):
             content = f.read()
             self.assertIn("# Test Document", content)
             self.assertNotIn("# References", content)
+
 
 
 if __name__ == '__main__':
