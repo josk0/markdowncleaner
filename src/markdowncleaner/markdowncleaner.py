@@ -4,9 +4,25 @@ from typing import Pattern, Optional
 import logging
 import re
 import ftfy
+
+from .constants import *
+from markdown_it import MarkdownIt                 # parses & re-renders Markdown :contentReference[oaicite:1]{index=1}
+from symspellpy import SymSpell, Verbosity         # spell/segment fixes     :contentReference[oaicite:2]{index=2}
+from deepmultilingualpunctuation import PunctuationModel  # punctuation restore :contentReference[oaicite:3]{index=3}
+from mdformat.renderer import MDRenderer   # NEW ✔
+import mdformat
+import spacy
+
+from importlib.resources import files
+
 from markdowncleaner.config.loader import get_default_patterns, CleaningPatterns
 
 _logger = logging.getLogger(__name__)
+
+
+def data_path():
+    return files("markdowncleaner").joinpath("data", "frequency_dictionary_en_82_765.txt")
+
 
 @dataclass
 class CleanerOptions:
@@ -22,6 +38,8 @@ class CleanerOptions:
     remove_within_lines: bool = True
     contract_empty_lines: bool = True
     crimp_linebreaks: bool = True
+    restore_punctuations: bool = True
+    clean_ocr: bool = True
 
 
 class MarkdownCleaner:
@@ -36,6 +54,12 @@ class MarkdownCleaner:
         """
         self.patterns = patterns or get_default_patterns()
         self.options = options or CleanerOptions()
+
+        self.SYM = SymSpell(max_dictionary_edit_distance=2, prefix_length=7)
+        self.SYM.load_dictionary(data_path(), term_index=0, count_index=1)
+        self.PUNCT_MODEL = PunctuationModel()
+        self.NLP = spacy.load("en_core_web_sm")
+
 
     def clean_markdown_file(self,
                             input_file: Path,
@@ -58,7 +82,8 @@ class MarkdownCleaner:
 
         # Apply cleaning operations
         cleaned_content = self.clean_markdown_string(cleaned_content)
-
+        if self.options.clean_ocr:
+            cleaned_content = self.clean_markdown_ocr(cleaned_content)
         if output_file is not None:
             cleaned_filepath = Path(output_file)
             # Ensure parent directory exists
@@ -420,3 +445,102 @@ class MarkdownCleaner:
             i += 1  # Move to the next line
         
         return '\n'.join(result_lines)
+
+    def _preclean(self, md):
+        """Dehyphenates markdown text. Removes control characters."""
+        # de-hyphenate split words
+        md = re.sub(r'(\w)-\n(\w)', r'\1\2', md)
+
+        # build a translation table that deletes control chars **except** \t, \n, \r
+        ctrl_to_delete = {
+            c: None
+            for c in range(32)
+            if c not in (9, 10, 13)  # 9 = \t, 10 = \n, 13 = \r
+        }
+        md = md.translate(ctrl_to_delete)
+        return md
+
+    def _sentence_case(self, text):
+        """Restores case of the first letter of the sentence. Used after punctuation was restored."""
+        text = re.sub(r"^\s*([a-z])", lambda m: m.group(1).upper(), text)
+
+        def _repl(m):
+            return m.group(1) + m.group(2).upper()
+
+        text = re.sub(r"([.!?]['”’\")\]]*\s+)([a-z])", _repl, text)
+        return text
+
+    def _split_on_ner(self, text):
+        """Splits text on NER tags to prevent autocorrection of the named entities."""
+        doc = self.NLP(text)
+        parts = []
+        last = 0
+        for ent in doc.ents:
+            if ent.start_char > last:
+                parts.append(("clean", text[last:ent.start_char]))
+            parts.append(("keep", ent.text))
+            last = ent.end_char
+        if last < len(text):
+            parts.append(("clean", text[last:]))
+        return parts
+
+    def _clean_piece(self, piece):
+        """Run text-cleaning pipeline on *one* piece of text."""
+        try:
+            piece = self.SYM.lookup_compound(
+                piece, max_edit_distance=1,
+                transfer_casing=True, ignore_non_words=True
+            )[0].term
+        except:
+            pass
+        if not piece.strip():
+            return piece
+        piece = self.SYM.word_segmentation(piece, ignore_token=IGNORE_RE).corrected_string
+        return piece
+
+    def _restore_punct(self, text):
+        """Restores punctuation."""
+        return self.PUNCT_MODEL.restore_punctuation(text)
+
+    def _process_inline_block(self, inline):
+        """Aggressively cleans block of the Markdown, using Named Entity Recognition"""
+        txt_nodes = [t for t in inline.children if t.type == "text"]
+        if not txt_nodes:
+            return
+
+        for node in txt_nodes:
+            deduped = DUP_RE.sub(r"\1 ", node.content)
+            outer_parts = re.split(BRACKET_RE, deduped)
+
+            final_parts = []  # will accumulate cleaned + kept chunks
+
+            for idx, outer in enumerate(outer_parts):
+                if idx % 2 == 1:  # this is a bracketed reference
+                    # print("KEEP BRACKETS :", outer)
+                    final_parts.append(outer)
+                    continue
+                for kind, chunk in self._split_on_ner(outer):
+                    if kind == "keep":
+                        # print("KEEP  NER     :", chunk)
+                        final_parts.append(chunk)
+                    else:
+                        cleaned = self._clean_piece(chunk)
+                        # cleaned =  PUNCT_MODEL.restore_punctuation(cleaned)
+                        final_parts.append(cleaned)
+            joined = " ".join(final_parts)
+            joined = self.PUNCT_MODEL.restore_punctuation(joined)
+            joined = self._sentence_case(joined)
+            node.content = joined
+
+    def clean_markdown_ocr(self, raw_md):
+        raw_md = self._preclean(raw_md)
+        md = MarkdownIt()
+        tokens = md.parse(raw_md)
+
+        # process **each inline container once**
+        for tok in tokens:
+            if tok.type == "inline" and tok.type not in SKIP_TYPES:
+                self._process_inline_block(tok)
+        env = {"md": md, "lines": raw_md.splitlines(True)}
+        pretty = mdformat.text(MDRenderer().render(tokens, {}, env))
+        return pretty

@@ -8,7 +8,7 @@ version = "0.2.0"
 description = "A tool for cleaning and formatting markdown documents"
 readme = "README.md"
 authors = [
-    {name = "Johannes Himmelreich", email = "jrhimmel@syr.edu"}
+    {name = "Johannes Himmelreich", email = "jrhimmel@syr.edu"},
 ]
 license = {text = "MIT"}
 classifiers = [
@@ -28,6 +28,13 @@ keywords = ["markdown", "cleaning", "formatting", "text processing"]
 dependencies = [
     "pyyaml>=6.0",
     "ftfy>=6.0.3",
+    "markdown-it-py>=3.0.0",
+    "symspellpy>=6.9.0",
+    "mdformat>=0.7.22",
+    "deepmultilingualpunctuation>=1.0.1",
+    "spacy>=3.8.2",
+    "en_core_web_sm @ https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.8.0/en_core_web_sm-3.8.0-py3-none-any.whl",
+
 ]
 requires-python = ">=3.10"
 
@@ -43,7 +50,7 @@ include-package-data = true
 where = ["src"]
 
 [tool.setuptools.package-data]
-markdowncleaner = ["config/*.yaml"]
+markdowncleaner = ["config/*.yaml", "data/*"]
 
 [project.scripts]
 markdowncleaner = "markdowncleaner.cli:main"
