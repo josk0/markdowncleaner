@@ -5,7 +5,7 @@ import logging
 import re
 import ftfy
 
-from constants import *
+from .constants import *
 from markdown_it import MarkdownIt                 # parses & re-renders Markdown :contentReference[oaicite:1]{index=1}
 from symspellpy import SymSpell, Verbosity         # spell/segment fixes     :contentReference[oaicite:2]{index=2}
 from deepmultilingualpunctuation import PunctuationModel  # punctuation restore :contentReference[oaicite:3]{index=3}

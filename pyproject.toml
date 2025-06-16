@@ -28,7 +28,7 @@ keywords = ["markdown", "cleaning", "formatting", "text processing"]
 dependencies = [
     "pyyaml>=6.0",
     "ftfy>=6.0.3",
-    "markdown-it-py>=2.2.0",
+    "markdown-it-py>=3.0.0",
     "symspellpy>=6.9.0",
     "mdformat>=0.7.22",
     "deepmultilingualpunctuation>=1.0.1",
@@ -36,7 +36,7 @@ dependencies = [
     "en_core_web_sm @ https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.8.0/en_core_web_sm-3.8.0-py3-none-any.whl",
 
 ]
-requires-python = ">=3.10"
+requires-python = ">=3.12"
 
 [project.urls]
 "Repository" = "https://github.com/josk0/markdowncleaner"
