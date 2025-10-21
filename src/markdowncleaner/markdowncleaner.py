@@ -11,6 +11,8 @@ _logger = logging.getLogger(__name__)
 @dataclass
 class CleanerOptions:
     """Countainer for Cleaner options"""
+    fix_encoding_mojibake : bool = False
+    normalize_quotation_symbols : bool = False
     remove_short_lines: bool = True
     min_line_length: int = 70
     remove_whole_lines: bool = True
@@ -27,7 +29,7 @@ class CleanerOptions:
 class MarkdownCleaner:
     """Class to handle markdown document cleaning operations."""
 
-    def __init__(self, patterns: CleaningPatterns = None, options: Optional[CleanerOptions] = None):
+    def __init__(self, patterns: CleaningPatterns, options: Optional[CleanerOptions] = None):
         """
         Initialize the cleaner with patterns.
 
@@ -86,14 +88,16 @@ class MarkdownCleaner:
         """Apply all cleaning operations to the content."""
 
         # Apply all default ftfy fixes if mojibake is detected
-        if ftfy.is_bad(content):
-            content = ftfy.fix_text(content)
+        if self.options.fix_encoding_mojibake:
+            if ftfy.is_bad(content):
+                content = ftfy.fix_text(content)
 
         # Reduce two or more subsequent spaces to a single space
         content = re.sub(r' {2,}', ' ', content)
 
         # Normalize quotes
-        content = self._normalize_quotation_symbols(content)
+        if self.options.normalize_quotation_symbols:
+            content = self._normalize_quotation_symbols(content)
 
         # Remove lines shorter than min_line_length (default: 70 characters)
         if self.options.remove_short_lines:
@@ -116,9 +120,9 @@ class MarkdownCleaner:
             for k, v in self.patterns.replacements.items():
                 content = self._replace_within_lines(content, k, v)
 
-        # Replace footnote pattern (numbers at end of sentence) with '.'
+        # Replace footnote pattern (numbers at end of sentence) with '. '
         if self.options.remove_footnotes_in_text:
-            content = self._replace_within_lines(content, self.patterns.footnote_patterns, '.')
+            content = self._replace_within_lines(content, self.patterns.footnote_patterns, '. ')
 
         # Remove remaining unwanted inline patterns (some may have been replaced by replacements)
         if self.options.remove_within_lines:
