@@ -231,7 +231,7 @@ bad_lines_patterns:
   - Links to third party websites
   - Registered in England and Wales
  # Thanks 
-  - \b(I|[Ww]e)\b.*\b(thank|grateful|indebted)\b.*\b(feedback|participants|individuals|referee)\b.*
+  - \b(I|[Ww]e)\b.*\b(thank|grateful|indebted)\b.*\b(feedback|participants|individuals|referee|publisher|reviewer)\b.*
   - \*For comments
   - \*Thanks to
   - Many thanks to

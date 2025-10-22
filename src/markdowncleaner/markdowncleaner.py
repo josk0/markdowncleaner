@@ -24,6 +24,7 @@ class CleanerOptions:
     remove_within_lines: bool = True
     contract_empty_lines: bool = True
     crimp_linebreaks: bool = False
+    remove_references_heuristically: bool = True
 
 
 class MarkdownCleaner:
@@ -92,6 +93,10 @@ class MarkdownCleaner:
             if ftfy.is_bad(content):
                 content = ftfy.fix_text(content)
 
+        # Heuristically detect and remove blocks of lines with bibliographic information 
+        if self.options.remove_references_heuristically:
+            content = self._remove_bibliographic_lines(content)
+        
         # Reduce two or more subsequent spaces to a single space
         content = re.sub(r' {2,}', ' ', content)
 
@@ -136,6 +141,134 @@ class MarkdownCleaner:
 
         return content
     
+    def _remove_bibliographic_lines(self, text: str, score_threshold: int = 3) -> str:
+        """
+        Remove bibliographic reference lines from text.
+
+        Detects and removes individual lines that appear to be bibliography entries
+        by scoring each line based on bibliographic patterns.
+
+        Args:
+            text: Input text to clean
+            score_threshold: Minimum score for a line to be removed (default: 3)
+
+        Returns:
+            Text with bibliographic lines removed
+        """
+        lines = text.splitlines()
+        result_lines = []
+
+        for line in lines:
+            score = self._score_bibliography_line(line)
+            if score < score_threshold:
+                result_lines.append(line)
+
+        return '\n'.join(result_lines)
+
+    def _score_bibliography_line(self, line: str) -> int:
+        """
+        Score a line based on bibliographic patterns.
+
+        Args:
+            line: Line of text to score
+
+        Returns:
+            Integer score based on number of bibliographic patterns matched
+        """
+        score = 0
+        stripped = line.strip()
+
+        # Don't score very short lines
+        if len(stripped) < 20:
+            return 0
+
+        # 1 point patterns
+
+        # Year in parentheses: (1984), (2020), or [1960]
+        if re.search(r'\([12][089]\d{2}\)|\[[12][089]\d{2}\]', line):
+            score += 1
+
+        # Page ranges: 35-57, pp. 332-487, 283-310
+        if re.search(r'\bpp?\.\s*\d+-\d+|\b\d{2,3}-\d{2,3}\b', line):
+            score += 1
+
+        # Publisher/location: "Cambridge, MA: Harvard", "Oxford: Clarendon Press"
+        if re.search(r'[A-Z][a-z]+(?:,\s*[A-Z]{2})?:\s*[A-Z][a-z]+', line):
+            score += 1
+
+        # Numbered list format: starts with "1. ", "14. ", etc.
+        if re.match(r'^\s*\d{1,3}\.\s+', line):
+            score += 1
+
+        # Bullet format: starts with "- " or "• "
+        if re.match(r'^\s*[-•]\s+', line):
+            score += 1
+
+        # Italic markers: *Title Text*
+        if re.search(r'\*[^*]+\*', line):
+            score += 1
+
+        # "In:" followed by capital letter
+        if re.search(r'\bIn:\s+[A-Z]', line):
+            score += 1
+
+        # Ampersand: " & " in author context
+        if ' & ' in line:
+            score += 1
+
+        # Multiple initials: "J. B. Wiesner", "M.A.", "H. F."
+        if re.search(r'\b[A-Z]\.\s*[A-Z]\.|\b[A-Z]\.[A-Z]\.', line):
+            score += 1
+
+        # "et al."
+        if 'et al.' in line:
+            score += 1
+
+        # Author name patterns: "LastName, FirstInitial." or "LastName, FirstName" at line start
+        if re.match(r'^\s*[A-Z][a-z]+,\s+[A-Z]', line):
+            score += 1
+
+        # Punctuation density: >8% of characters are . , : ; ( )
+        if len(line) > 0:
+            punct_chars = sum(1 for c in line if c in '.,;:()')
+            if punct_chars / len(line) > 0.08:
+                score += 1
+
+        # 2 point patterns
+        
+        # Common journal names
+        if re.search(r'\b(journal|proceedings|review|quarterly|annals|transactions|bulletin|University Press)\b', line, re.IGNORECASE):
+            score += 2
+        
+        # Author initial and date without brackets separated with dots
+        if re.search(r' [A-Za-z]\. \d{4}\. ', line):
+            score += 2
+        if re.search(r' [A-Za-z]\.\, \d{4}\, ', line):
+            score += 2
+        # Author lastname, first abbreviated, date in brackets, then title, e.g., Axelrod, R. (1984) T
+        if re.search(r'\w+,\s+([A-Z]\.)+\s+\(\d{4}\)\s+[A-Z]', line):
+            score += 2
+
+        # volumne and page ranges
+        if re.search(r' \d{2,3}: \d{1,4}[-–—]\d{2,4}', line):
+            score += 2
+
+        # 3 point patterns
+
+        # Volume/issue: 121(3), 14(2), Vol. I, vol(issue)
+        if re.search(r'\b\d+\(\d+\)\b|Vol\.\s*[IVX]+|vol\.\s*\d+', line, re.IGNORECASE):
+            score += 3
+
+        # DOI: doi.org/, DOI:
+        if re.search(r'doi\.org/|DOI:', line, re.IGNORECASE):
+            score += 3
+
+        # Editor markers: "Ed." or "Eds." (as standalone word or in parentheses)
+        if re.search(r'\bEds?\.\b|\(Eds?\.\)', line):
+            score += 3
+
+        return score
+
     def _normalize_quotation_symbols(self, text: str) -> str:
         """
         Normalizes quotation symbols in the input text.
