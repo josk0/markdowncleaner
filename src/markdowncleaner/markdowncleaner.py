@@ -23,7 +23,7 @@ class CleanerOptions:
     replace_within_lines: bool = True
     remove_within_lines: bool = True
     contract_empty_lines: bool = True
-    crimp_linebreaks: bool = True
+    crimp_linebreaks: bool = False
 
 
 class MarkdownCleaner:
@@ -213,10 +213,10 @@ class MarkdownCleaner:
         # Split the content into lines
         lines = multiline_string.splitlines()
 
-        # Filter out lines that are shorter than length but that are neither empty nor start with '#'
+        # Filter out lines that are shorter than length but that are neither empty nor start with '#' nor with a pattern indicating a markdown list like '1. '
         filtered_lines = []
         for line in lines:
-            if not line.strip() == '' and not line.startswith('#') and len(line) < length:
+            if not line.strip() == '' and not line.startswith('#') and not re.match(r'^\d{1,2}\.\s', line) and len(line) < length:
                 continue
             filtered_lines.append(line)
 
