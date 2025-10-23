@@ -179,9 +179,10 @@ class TestMarkdownCleaner(unittest.TestCase):
         self.assertEqual(self.cleaner._remove_duplicate_headlines(text_case), text_case)
 
     def test_crimp_linebreaks(self):
-        text = "This line ends \nwith an awkward break."
+        # Test connective-based crimping (line ending with hyphen)
+        text = "This line ends with a hy-\nphenated word that continues."
         result = self.cleaner._crimp_linebreaks(text)
-        self.assertEqual(result, "This line ends with an awkward break.")
+        self.assertEqual(result, "This line ends with a hyphenated word that continues.")
         
     def test_clean_markdown_file(self):
         # Create a test markdown file

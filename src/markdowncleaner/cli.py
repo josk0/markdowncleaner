@@ -44,6 +44,18 @@ def parse_args(args: Optional[List[str]] = None) -> argparse.Namespace:
 
     # Options for customizing the cleaning process
     parser.add_argument(
+        "--fix-encoding",
+        action="store_true",
+        help="Fix encoding mojibake"
+    )
+
+    parser.add_argument(
+        "--normalize-quotation",
+        action="store_true",
+        help="Normalize quotation symbols"
+    )    
+
+    parser.add_argument(
         "--keep-short-lines",
         action="store_true",
         help="Don't remove lines shorter than minimum length"
@@ -99,9 +111,15 @@ def parse_args(args: Optional[List[str]] = None) -> argparse.Namespace:
     )
 
     parser.add_argument(
-        "--no-crimp-linebreaks",
+        "--no-crimping",
         action="store_true",
         help="Don't crimp linebreaks"
+    )
+
+    parser.add_argument(
+        "--keep-references",
+        action="store_true",
+        help="Don't heuristically detect and remove references"
     )
 
     return parser.parse_args(args)
@@ -113,6 +131,8 @@ def main(args: Optional[List[str]] = None) -> int:
 
     # Configure cleaner options based on arguments
     options = CleanerOptions()
+    options.fix_encoding_mojibake = parsed_args.fix_encoding
+    options.normalize_quotation_symbols = parsed_args.normalize_quotation 
     options.remove_short_lines = not parsed_args.keep_short_lines
     options.min_line_length = parsed_args.min_line_length
     options.remove_whole_lines = not parsed_args.keep_bad_lines
@@ -122,7 +142,8 @@ def main(args: Optional[List[str]] = None) -> int:
     options.replace_within_lines = not parsed_args.no_replacements
     options.remove_within_lines = not parsed_args.keep_inline_patterns
     options.contract_empty_lines = not parsed_args.keep_empty_lines
-    options.crimp_linebreaks = not parsed_args.no_crimp_linebreaks
+    options.crimp_linebreaks = not parsed_args.no_crimping
+    options.remove_references_heuristically = not parsed_args.keep_references
 
     # Load patterns from custom config or use defaults
     if parsed_args.config:

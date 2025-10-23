@@ -44,7 +44,8 @@ sections_to_remove:
   - List of Illustrations
   - |-
     ^\s?Keywords\s?\.?$
-  - Authors' Note
+  - ^\bauthors?[\''']?\s+note\b
+  - ^\bAUTHORS?[\''']?\s+NOTE\b
   - |-
     ^[a-zA-Z0-9]+-[a-zA-Z0-9]+-?[a-zA-Z0-9]+[^\s]*$
   - |-
@@ -62,6 +63,7 @@ sections_to_remove:
   - |-
     Published by\:
   - Preface
+  - Note on sources
 
 # Patterns for inline text that should be removed
 bad_inline_patterns:
@@ -81,6 +83,9 @@ bad_inline_patterns:
     \* 1 ,
   - |-
     \(p\.?\d{1,3}\)
+  - \\footnote\{[^}]*\}
+# line ending with ...
+  - \.\.\.$
 
 # Patterns for entire lines that should be removed
 bad_lines_patterns:
@@ -110,10 +115,8 @@ bad_lines_patterns:
   - |-
     10\.\d{4,9}/[-._;()/:\w]+
   - Digital Object Identifier
-  - |-
-    ^[Kk]eywords
-  - |-
-     ^Conflict of Interest
+  - ^[Kk]ey\s?words
+  - ^Conflict of Interest
   - ^Library of Congress
   - ^Open Access
   - ^OpenAccess
@@ -128,10 +131,8 @@ bad_lines_patterns:
   - ^Table of Contents
   - |-
     ^Source:
-  - |-
-    ^Published by
-  - |-
-   ^CCS Concepts
+  - ^Published by
+  - ^CCS Concepts
   - ISSN
   - ISBN
   - |-
@@ -160,10 +161,19 @@ bad_lines_patterns:
   - ™
   - |-
     c \d{4}
+  # Unicode footnote numbers
+  - ^([⁰¹²³⁴⁵⁶⁷⁸⁹]+)
+  # Latex OCRed footnotes, text and math environment
+  - ^\\textsuperscript\{(\d+)\}
+  - ^\\\(\^\{?(\d+)\}?\\\)
+  # bibliography
+  - ^\\bibitem\{[^\s}]+\}
+  # footnotes: line starting with number and "ibid"
+  - ^\d+.*\b[Ii]bid\b
   - |-
-    ^\d{1,3}\s?.\s?[Ss]ee
+    ^\d{1,3}\s?.\s?([Ss]ee|[Nn]ote)
   - |-
-    ^\-\s?\d{1,3}\s?.\s?[Ss]ee
+    ^\-\s?\d{1,3}\s?.\s?([Ss]ee|[Nn]ote)
   - |-
     ^\d{1,2}[A-Za-z]+
   - |-
@@ -215,6 +225,8 @@ bad_lines_patterns:
   - All rights reserved
   - No portion of this publication may be reproduced
   - authors have asserted their rights to be identified as the authors
+  - authors contributed equally
+  - ^\*{0,2} ?[Aa]uthor contributions
   - material in this work has been asserted in accordance
   - imprint of Macmillan Publishers
   - A catalogue record for this book is available
@@ -223,21 +235,13 @@ bad_lines_patterns:
   - This article is published with open access
   - Links to third party websites
   - Registered in England and Wales
-  - |-
-    \*I thank
-  - |-
-    \*We thank
-  - |-
-    \*For comments
-  - |-
-    \*I would like to thank
-  - |-
-    \*We would like to thank
-  - |-
-    \*Thanks to
+ # Thanks 
+  - \b(I|[Ww]e)\b.*\b(thank|grateful|indebted)\b.*\b(feedback|participants|individuals|referee|publisher|reviewer|NSF|NEH|NIH|discussions|comments)\b.*
+  - \*For comments
+  - \*Thanks to
+  - Many thanks to
   - |-
     \*\s?This article is
-  - I am grateful for
   - Oxford University Press is a department of
   - a registered trademark of
   - Published in the United States
@@ -248,14 +252,24 @@ bad_lines_patterns:
   - catalogue recordfor this publication
   - An earlier version of this paper was
   - Springer International Publishing AG
+  - Springer Nature remains neutral
   - part of Springer Nature
   - This work is subject to copyright.
   - permission to reuse the copyright
   - distributed under the terms of a Creative Commons
+  - author(s) received no financial support
+  - author(s) declared no
+  - ^The views expressed in this
+  - ^Competing interests
   - |-
     , [A-Z]{2} \d{5}(?:-\d{4})?,
+# some bibliography patterns
+  - ^[A-Z][a-z]+(?:,\s[A-Z][a-z]+)*(?:,\s(?:and\s)?[A-Z][a-z]+)*\.\s\d{4}\.
+  - ^([^(]+)\.\s+\((\[?\d{4}\]?(?:\s+\d{4})?)\)\s+(.+)$
 
-# Footnotes
+# In-line footnote numbers, will be replaced with '.' if matched and if remove_footnotes_in_text
+footnote_patterns:
+  - \\footnote\{[^}]*\}
 # Pattern matches:
 # 1. A period
 # 2. Optional space
@@ -263,9 +277,13 @@ bad_lines_patterns:
 # 4. Optionally followed by comma and space and more 1-3 digit numbers
 # 5. This pattern repeats for any number of comma-separated numbers
 # 6. Followed by either end of string, whitespace, or newline
-footnote_patterns:
-  - |-
-    \.\s?(\d{1,3}(?:,\s*\d{1,3})*?)(?=\s|$)
+  - \.\s?(\d{1,3}(?:,\s*\d{1,3})*?)(?=\s|$)
+# Latex superscripted numerals in text and math environment like \textsuperscript{12} or .\(^{12}\)
+  - \.\\textsuperscript\{(\d+)\}(?=\s|$)
+  - \.\\\(\^\{?(\d+)\}?\\\)(?=\s|$)
+# Unicode superscript numerals
+  - \.([⁰¹²³⁴⁵⁶⁷⁸⁹]+)(?=\s|$)
+  
 
 replacements:
   'GLYPH&lt;28&gt;': 'fi'
@@ -294,3 +312,5 @@ replacements:
   '/ornm58.ornm': ''
   '/ornm69.ornm': ''
   '&amp;': '&'
+  # note: need to escape the \ below (these are read as regex)
+  '\\item': '-'

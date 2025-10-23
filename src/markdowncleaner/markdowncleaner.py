@@ -11,6 +11,8 @@ _logger = logging.getLogger(__name__)
 @dataclass
 class CleanerOptions:
     """Countainer for Cleaner options"""
+    fix_encoding_mojibake : bool = False
+    normalize_quotation_symbols : bool = False
     remove_short_lines: bool = True
     min_line_length: int = 70
     remove_whole_lines: bool = True
@@ -22,17 +24,19 @@ class CleanerOptions:
     remove_within_lines: bool = True
     contract_empty_lines: bool = True
     crimp_linebreaks: bool = True
+    remove_references_heuristically: bool = True
 
 
 class MarkdownCleaner:
     """Class to handle markdown document cleaning operations."""
 
-    def __init__(self, patterns: CleaningPatterns = None, options: Optional[CleanerOptions] = None):
+    def __init__(self, patterns: Optional[CleaningPatterns] = None, options: Optional[CleanerOptions] = None):
         """
         Initialize the cleaner with patterns.
 
         Args:
             patterns: CleaningPatterns instance, or None to use defaults
+            options: CleanerOptions instance, or None to use defaults
         """
         self.patterns = patterns or get_default_patterns()
         self.options = options or CleanerOptions()
@@ -86,14 +90,20 @@ class MarkdownCleaner:
         """Apply all cleaning operations to the content."""
 
         # Apply all default ftfy fixes if mojibake is detected
-        if ftfy.is_bad(content):
-            content = ftfy.fix_text(content)
+        if self.options.fix_encoding_mojibake:
+            if ftfy.is_bad(content):
+                content = ftfy.fix_text(content)
 
+        # Heuristically detect and remove blocks of lines with bibliographic information 
+        if self.options.remove_references_heuristically:
+            content = self._remove_bibliographic_lines(content)
+        
         # Reduce two or more subsequent spaces to a single space
         content = re.sub(r' {2,}', ' ', content)
 
         # Normalize quotes
-        content = self._normalize_quotation_symbols(content)
+        if self.options.normalize_quotation_symbols:
+            content = self._normalize_quotation_symbols(content)
 
         # Remove lines shorter than min_line_length (default: 70 characters)
         if self.options.remove_short_lines:
@@ -116,9 +126,9 @@ class MarkdownCleaner:
             for k, v in self.patterns.replacements.items():
                 content = self._replace_within_lines(content, k, v)
 
-        # Replace footnote pattern (numbers at end of sentence) with '.'
+        # Replace footnote pattern (numbers at end of sentence) with '. '
         if self.options.remove_footnotes_in_text:
-            content = self._replace_within_lines(content, self.patterns.footnote_patterns, '.')
+            content = self._replace_within_lines(content, self.patterns.footnote_patterns, '. ')
 
         # Remove remaining unwanted inline patterns (some may have been replaced by replacements)
         if self.options.remove_within_lines:
@@ -132,6 +142,134 @@ class MarkdownCleaner:
 
         return content
     
+    def _remove_bibliographic_lines(self, text: str, score_threshold: int = 3) -> str:
+        """
+        Remove bibliographic reference lines from text.
+
+        Detects and removes individual lines that appear to be bibliography entries
+        by scoring each line based on bibliographic patterns.
+
+        Args:
+            text: Input text to clean
+            score_threshold: Minimum score for a line to be removed (default: 3)
+
+        Returns:
+            Text with bibliographic lines removed
+        """
+        lines = text.splitlines()
+        result_lines = []
+
+        for line in lines:
+            score = self._score_bibliography_line(line)
+            if score < score_threshold:
+                result_lines.append(line)
+
+        return '\n'.join(result_lines)
+
+    def _score_bibliography_line(self, line: str) -> int:
+        """
+        Score a line based on bibliographic patterns.
+
+        Args:
+            line: Line of text to score
+
+        Returns:
+            Integer score based on number of bibliographic patterns matched
+        """
+        score = 0
+        stripped = line.strip()
+
+        # Don't score very short lines
+        if len(stripped) < 20:
+            return 0
+
+        # 1 point patterns
+
+        # Year in parentheses: (1984), (2020), or [1960]
+        if re.search(r'\([12][089]\d{2}\)|\[[12][089]\d{2}\]', line):
+            score += 1
+
+        # Page ranges: 35-57, pp. 332-487, 283-310
+        if re.search(r'\bpp?\.\s*\d+-\d+|\b\d{2,3}-\d{2,3}\b', line):
+            score += 1
+
+        # Publisher/location: "Cambridge, MA: Harvard", "Oxford: Clarendon Press"
+        if re.search(r'[A-Z][a-z]+(?:,\s*[A-Z]{2})?:\s*[A-Z][a-z]+', line):
+            score += 1
+
+        # Numbered list format: starts with "1. ", "14. ", etc.
+        if re.match(r'^\s*\d{1,3}\.\s+', line):
+            score += 1
+
+        # Bullet format: starts with "- " or "• "
+        if re.match(r'^\s*[-•]\s+', line):
+            score += 1
+
+        # Italic markers: *Title Text*
+        if re.search(r'\*[^*]+\*', line):
+            score += 1
+
+        # "In:" followed by capital letter
+        if re.search(r'\bIn:\s+[A-Z]', line):
+            score += 1
+
+        # Ampersand: " & " in author context
+        if ' & ' in line:
+            score += 1
+
+        # Multiple initials: "J. B. Wiesner", "M.A.", "H. F."
+        if re.search(r'\b[A-Z]\.\s*[A-Z]\.|\b[A-Z]\.[A-Z]\.', line):
+            score += 1
+
+        # "et al."
+        if 'et al.' in line:
+            score += 1
+
+        # Author name patterns: "LastName, FirstInitial." or "LastName, FirstName" at line start
+        if re.match(r'^\s*[A-Z][a-z]+,\s+[A-Z]', line):
+            score += 1
+
+        # Punctuation density: >8% of characters are . , : ; ( )
+        if len(line) > 0:
+            punct_chars = sum(1 for c in line if c in '.,;:()')
+            if punct_chars / len(line) > 0.08:
+                score += 1
+
+        # 2 point patterns
+        
+        # Common journal names
+        if re.search(r'\b(journal|proceedings|review|quarterly|annals|transactions|bulletin|University Press)\b', line, re.IGNORECASE):
+            score += 2
+        
+        # Author initial and date without brackets separated with dots
+        if re.search(r' [A-Za-z]\. \d{4}\. ', line):
+            score += 2
+        if re.search(r' [A-Za-z]\.\, \d{4}\, ', line):
+            score += 2
+        # Author lastname, first abbreviated, date in brackets, then title, e.g., Axelrod, R. (1984) T
+        if re.search(r'\w+,\s+([A-Z]\.)+\s+\(\d{4}\)\s+[A-Z]', line):
+            score += 2
+
+        # volumne and page ranges
+        if re.search(r' \d{2,3}: \d{1,4}[-–—]\d{2,4}', line):
+            score += 2
+
+        # 3 point patterns
+
+        # Volume/issue: 121(3), 14(2), Vol. I, vol(issue)
+        if re.search(r'\b\d+\(\d+\)\b|Vol\.\s*[IVX]+|vol\.\s*\d+', line, re.IGNORECASE):
+            score += 3
+
+        # DOI: doi.org/, DOI:
+        if re.search(r'doi\.org/|DOI:', line, re.IGNORECASE):
+            score += 3
+
+        # Editor markers: "Ed." or "Eds." (as standalone word or in parentheses)
+        if re.search(r'\bEds?\.\b|\(Eds?\.\)', line):
+            score += 3
+
+        return score
+
     def _normalize_quotation_symbols(self, text: str) -> str:
         """
         Normalizes quotation symbols in the input text.
@@ -209,10 +347,10 @@ class MarkdownCleaner:
         # Split the content into lines
         lines = multiline_string.splitlines()
 
-        # Filter out lines that are shorter than length but that are neither empty nor start with '#'
+        # Filter out lines that are shorter than length but that are neither empty nor start with '#' nor with a pattern indicating a markdown list like '1. '
         filtered_lines = []
         for line in lines:
-            if not line.strip() == '' and not line.startswith('#') and len(line) < length:
+            if not line.strip() == '' and not line.startswith('#') and not re.match(r'^\d{1,2}\.\s', line) and len(line) < length:
                 continue
             filtered_lines.append(line)
 
@@ -366,51 +504,92 @@ class MarkdownCleaner:
             markdown_text (str): Input markdown text with potential line break errors
 
         The function handles two cases:
-        1. Hyphenated words split across lines (even with one empty line in between)
-        2. Paragraphs incorrectly split by empty lines when a line ends with a letter
+        1. Connective-based crimping: Lines ending with -, –, —, or ...
+        2. Justified text crimping: Adjacent lines of similar length
 
         Returns:
-            str: Text with all patterns removed
+            str: Text with crimped linebreaks
         """
-
         lines = markdown_text.splitlines()
         result_lines = []
         i = 0
+
+        def _is_list_item(line: str) -> bool:
+            if not line:
+                return False
+            
+            # Check condition 1: starts with list marker
+            if line[0] in '-–—*∙•・◦●○':
+                return True
+            
+            # Check condition 2: contains list punctuation in first 5 chars
+            first_five = line[:5]
+            if any(char in first_five for char in '.)*]'):
+                return True
+            
+            # Check condition 3: starts with numeral
+            if line[0].isdigit():
+                return True
+            
+            return False
 
         while i < len(lines):
             current_line = lines[i].strip()
             
             # Try to join as many consecutive lines as possible
             while True:
-                joined = False
                 
-                # Case 1: Handle hyphenated words
-                if current_line.endswith('-'):
+                # Case 1: Connective-based crimping
+                if current_line and current_line.endswith(('-', '–', '—', '...')):
+                    # Find next non-empty line within 3 lines (max 2 empty lines between)
                     j = i + 1
-                    while j < len(lines) and not lines[j].strip():
-                        j += 1
+                    empty_count = 0
+                    while j < len(lines) and empty_count <= 2:
+                        if not lines[j].strip():
+                            empty_count += 1
+                            j += 1
+                        else:
+                            break
                     
-                    if j < len(lines) and lines[j].strip() and lines[j].strip()[0].islower():
-                        current_line = current_line[:-1] + lines[j].strip()
-                        i = j  # Update i to the last joined line
-                        joined = True
-                        continue  # Skip to next join check
+                    # Check if we found a valid next line
+                    if j < len(lines) and lines[j].strip():
+                        next_line = lines[j].strip()
+                        
+                        # Check all conditions
+                        if (next_line[0].isalpha() and  # Starts with letter
+                            not _is_list_item(next_line) and  # Not a list item
+                            '.' in next_line[6:]):  # Contains '.' at position 6 or later
+                            
+                            # Remove hyphen if present, otherwise add space
+                            if current_line.endswith(('-', '–', '—')):
+                                current_line = current_line[:-1] + next_line
+                            else:  # ends with '...'
+                                current_line = current_line + ' ' + next_line
+                            
+                            i = j  # Update i to the last joined line
+                            continue
                 
-                # Case 2: Handle paragraph merging
-                if not current_line.startswith('#') and current_line and (current_line[-1].isalpha() or current_line[-1] in ',;\'\"'):
-                    _logger.debug(f'Crimping line:... {current_line[-50:]}')
-                    j = i + 1
-                    while j < len(lines) and not lines[j].strip():
-                        j += 1
+                # Case 2: Justified text crimping
+                if (current_line and 
+                    current_line[-1].isalpha() and  # Ends with letter
+                    not current_line.startswith('#') and  # Not a heading
+                    not _is_list_item(current_line)):  # Not a list item
                     
-                    if j < len(lines) and lines[j].strip() and \
-                       not lines[j].strip().startswith('#') and \
-                       not lines[j].strip().startswith('*') and \
-                       not lines[j].strip().startswith('-'):
-                        current_line = current_line + ' ' + lines[j].strip()
-                        i = j  # Update i to the last joined line
-                        joined = True # noqa: F841
-                        continue  # Skip to next join check
+                    # Check immediately next line (L+1)
+                    j = i + 1
+                    if j < len(lines) and lines[j].strip():
+                        next_line = lines[j].strip()
+                        
+                        # Check all conditions
+                        if (next_line[0].isalpha() and  # Starts with letter
+                            not next_line.startswith('#') and  # Not a heading
+                            not _is_list_item(next_line) and  # Not a list item
+                            len(next_line) >= 78 and  # Length >= 78
+                            abs(len(next_line) - len(current_line)) <= 10):  # Within ±10
+                            
+                            current_line = current_line + ' ' + next_line
+                            i = j  # Update i to the last joined line
+                            continue
                 
                 # If no joins were made, break the loop
                 break
