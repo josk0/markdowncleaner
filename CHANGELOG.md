@@ -5,7 +5,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## 0.3.0
+## 0.3.0 - 2025-10-22
 
 ### Added
 - **Heuristic reference removal**: Automatically detect and remove bibliographic reference lines based on pattern scoring
@@ -32,7 +32,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Linebreak crimping logic now properly handles various PDF conversion artifacts. In previous version it crimped together too happily
 - Test suite updated to match new implementation, mostly just fixing parameter names; bit lazy on adding tests
 
-## [0.2.0] - 2025-03-XX
+## [0.2.0] - 2025-03-03
 
 Initial PyPI release with core markdown cleaning functionality.
 
