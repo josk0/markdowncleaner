@@ -23,7 +23,7 @@ class CleanerOptions:
     replace_within_lines: bool = True
     remove_within_lines: bool = True
     contract_empty_lines: bool = True
-    crimp_linebreaks: bool = False
+    crimp_linebreaks: bool = True
     remove_references_heuristically: bool = True
 
 
@@ -503,51 +503,92 @@ class MarkdownCleaner:
             markdown_text (str): Input markdown text with potential line break errors
 
         The function handles two cases:
-        1. Hyphenated words split across lines (even with one empty line in between)
-        2. Paragraphs incorrectly split by empty lines when a line ends with a letter
+        1. Connective-based crimping: Lines ending with -, –, —, or ...
+        2. Justified text crimping: Adjacent lines of similar length
 
         Returns:
-            str: Text with all patterns removed
+            str: Text with crimped linebreaks
         """
-
         lines = markdown_text.splitlines()
         result_lines = []
         i = 0
+
+        def _is_list_item(line: str) -> bool:
+            if not line:
+                return False
+            
+            # Check condition 1: starts with list marker
+            if line[0] in '-–—*∙•・◦●○':
+                return True
+            
+            # Check condition 2: contains list punctuation in first 5 chars
+            first_five = line[:5]
+            if any(char in first_five for char in '.)*]'):
+                return True
+            
+            # Check condition 3: starts with numeral
+            if line[0].isdigit():
+                return True
+            
+            return False
 
         while i < len(lines):
             current_line = lines[i].strip()
             
             # Try to join as many consecutive lines as possible
             while True:
-                joined = False
                 
-                # Case 1: Handle hyphenated words
-                if current_line.endswith('-'):
+                # Case 1: Connective-based crimping
+                if current_line and current_line.endswith(('-', '–', '—', '...')):
+                    # Find next non-empty line within 3 lines (max 2 empty lines between)
                     j = i + 1
-                    while j < len(lines) and not lines[j].strip():
-                        j += 1
+                    empty_count = 0
+                    while j < len(lines) and empty_count <= 2:
+                        if not lines[j].strip():
+                            empty_count += 1
+                            j += 1
+                        else:
+                            break
                     
-                    if j < len(lines) and lines[j].strip() and lines[j].strip()[0].islower():
-                        current_line = current_line[:-1] + lines[j].strip()
-                        i = j  # Update i to the last joined line
-                        joined = True
-                        continue  # Skip to next join check
+                    # Check if we found a valid next line
+                    if j < len(lines) and lines[j].strip():
+                        next_line = lines[j].strip()
+                        
+                        # Check all conditions
+                        if (next_line[0].isalpha() and  # Starts with letter
+                            not _is_list_item(next_line) and  # Not a list item
+                            '.' in next_line[6:]):  # Contains '.' at position 6 or later
+                            
+                            # Remove hyphen if present, otherwise add space
+                            if current_line.endswith(('-', '–', '—')):
+                                current_line = current_line[:-1] + next_line
+                            else:  # ends with '...'
+                                current_line = current_line + ' ' + next_line
+                            
+                            i = j  # Update i to the last joined line
+                            continue
                 
-                # Case 2: Handle paragraph merging
-                if not current_line.startswith('#') and current_line and (current_line[-1].isalpha() or current_line[-1] in ',;\'\"'):
-                    _logger.debug(f'Crimping line:... {current_line[-50:]}')
-                    j = i + 1
-                    while j < len(lines) and not lines[j].strip():
-                        j += 1
+                # Case 2: Justified text crimping
+                if (current_line and 
+                    current_line[-1].isalpha() and  # Ends with letter
+                    not current_line.startswith('#') and  # Not a heading
+                    not _is_list_item(current_line)):  # Not a list item
                     
-                    if j < len(lines) and lines[j].strip() and \
-                       not lines[j].strip().startswith('#') and \
-                       not lines[j].strip().startswith('*') and \
-                       not lines[j].strip().startswith('-'):
-                        current_line = current_line + ' ' + lines[j].strip()
-                        i = j  # Update i to the last joined line
-                        joined = True # noqa: F841
-                        continue  # Skip to next join check
+                    # Check immediately next line (L+1)
+                    j = i + 1
+                    if j < len(lines) and lines[j].strip():
+                        next_line = lines[j].strip()
+                        
+                        # Check all conditions
+                        if (next_line[0].isalpha() and  # Starts with letter
+                            not next_line.startswith('#') and  # Not a heading
+                            not _is_list_item(next_line) and  # Not a list item
+                            len(next_line) >= 78 and  # Length >= 78
+                            abs(len(next_line) - len(current_line)) <= 10):  # Within ±10
+                            
+                            current_line = current_line + ' ' + next_line
+                            i = j  # Update i to the last joined line
+                            continue
                 
                 # If no joins were made, break the loop
                 break

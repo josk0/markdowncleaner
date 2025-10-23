@@ -44,7 +44,8 @@ sections_to_remove:
   - List of Illustrations
   - |-
     ^\s?Keywords\s?\.?$
-  - Authors' Note
+  - ^\bauthors?[\''']?\s+note\b
+  - ^\bAUTHORS?[\''']?\s+NOTE\b
   - |-
     ^[a-zA-Z0-9]+-[a-zA-Z0-9]+-?[a-zA-Z0-9]+[^\s]*$
   - |-
@@ -167,6 +168,8 @@ bad_lines_patterns:
   - ^\\\(\^\{?(\d+)\}?\\\)
   # bibliography
   - ^\\bibitem\{[^\s}]+\}
+  # footnotes: line starting with number and "ibid"
+  - ^\d+.*\b[Ii]bid\b
   - |-
     ^\d{1,3}\s?.\s?([Ss]ee|[Nn]ote)
   - |-
@@ -222,6 +225,8 @@ bad_lines_patterns:
   - All rights reserved
   - No portion of this publication may be reproduced
   - authors have asserted their rights to be identified as the authors
+  - authors contributed equally
+  - ^\*{0,2} ?[Aa]uthor contributions
   - material in this work has been asserted in accordance
   - imprint of Macmillan Publishers
   - A catalogue record for this book is available
@@ -231,7 +236,7 @@ bad_lines_patterns:
   - Links to third party websites
   - Registered in England and Wales
  # Thanks 
-  - \b(I|[Ww]e)\b.*\b(thank|grateful|indebted)\b.*\b(feedback|participants|individuals|referee|publisher|reviewer)\b.*
+  - \b(I|[Ww]e)\b.*\b(thank|grateful|indebted)\b.*\b(feedback|participants|individuals|referee|publisher|reviewer|NSF|NEH|NIH|discussions|comments)\b.*
   - \*For comments
   - \*Thanks to
   - Many thanks to
@@ -307,3 +312,5 @@ replacements:
   '/ornm58.ornm': ''
   '/ornm69.ornm': ''
   '&amp;': '&'
+  # note: need to escape the \ below (these are read as regex)
+  '\\item': '-'

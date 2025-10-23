@@ -5,7 +5,7 @@ A simple Python tool for cleaning and formatting markdown documents. Default con
 ## Description
 
 `markdowncleaner` helps you clean up markdown files by removing unwanted content such as:
-- References, bibliographies, and citations
+- References, bibliographies, and citations (including heuristic detection of bibliographic lines)
 - Footnotes and endnote references in text
 - Copyright notices and legal disclaimers
 - Acknowledgements and funding information
@@ -13,6 +13,7 @@ A simple Python tool for cleaning and formatting markdown documents. Default con
 - Specific patterns like DOIs, URLs, and email addresses
 - Short lines and excessive whitespace
 - Duplicate headlines (for example, because paper title and author names were reprinted on every page of a PDF)
+- Erroneous line breaks from PDF conversion
 
 This tool is particularly useful for processing academic papers, books, or any markdown document that needs formatting cleanup.
 
@@ -111,7 +112,10 @@ markdowncleaner input.md --keep-short-lines --keep-sections --keep-footnotes
 markdowncleaner input.md --no-replacements --keep-inline-patterns
 
 # Disable formatting operations
-markdowncleaner input.md --no-crimp-linebreaks --keep-empty-lines
+markdowncleaner input.md --no-crimping --keep-empty-lines
+
+# Keep references (disable heuristic reference detection)
+markdowncleaner input.md --keep-references
 ```
 
 **Available CLI Options:**
@@ -130,7 +134,8 @@ markdowncleaner input.md --no-crimp-linebreaks --keep-empty-lines
 - `--no-replacements`: Don't perform text replacements
 - `--keep-inline-patterns`: Don't remove inline patterns like citations
 - `--keep-empty-lines`: Don't contract consecutive empty lines
-- `--no-crimp-linebreaks`: Don't fix line break formatting
+- `--no-crimping`: Don't crimp linebreaks (fix line break errors from PDF conversion)
+- `--keep-references`: Don't heuristically detect and remove bibliographic reference lines
 
 ### Batch Processing Script
 
@@ -198,8 +203,9 @@ All available `CleanerOptions`:
 - `remove_footnotes_in_text`: Remove footnote references like ".1" or ".23" (default: True)
 - `replace_within_lines`: Replace specific patterns within lines (default: True)
 - `remove_within_lines`: Remove specific patterns within lines (default: True)
-- `contract_empty_lines`: Reduce multiple consecutive empty lines to one (default: False)
-- `crimp_linebreaks`: Fix line break errors from PDF conversion (default: False)
+- `contract_empty_lines`: Reduce multiple consecutive empty lines to one (default: True)
+- `crimp_linebreaks`: Fix line break errors from PDF conversion (default: True)
+- `remove_references_heuristically`: Heuristically detect and remove bibliographic reference lines by scoring lines based on bibliographic patterns (default: True)
 
 ## License
 

@@ -111,9 +111,9 @@ def parse_args(args: Optional[List[str]] = None) -> argparse.Namespace:
     )
 
     parser.add_argument(
-        "--crimp-linebreaks",
+        "--no-crimping",
         action="store_true",
-        help="Crimp linebreaks"
+        help="Don't crimp linebreaks"
     )
 
     parser.add_argument(
@@ -142,8 +142,8 @@ def main(args: Optional[List[str]] = None) -> int:
     options.replace_within_lines = not parsed_args.no_replacements
     options.remove_within_lines = not parsed_args.keep_inline_patterns
     options.contract_empty_lines = not parsed_args.keep_empty_lines
-    options.crimp_linebreaks = parsed_args.crimp_linebreaks
-    options.remove_references_heuristically = not parsed_args.remove_references
+    options.crimp_linebreaks = not parsed_args.no_crimping
+    options.remove_references_heuristically = not parsed_args.keep_references
 
     # Load patterns from custom config or use defaults
     if parsed_args.config:
