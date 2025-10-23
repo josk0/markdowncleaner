@@ -40,7 +40,7 @@ class TestCLI(unittest.TestCase):
             '--no-replacements',
             '--keep-inline-patterns',
             '--keep-empty-lines',
-            '--no-crimp-linebreaks',
+            '--no-crimping',
         ])
 
         self.assertEqual(args.input_file, Path('somefile.md'))
@@ -56,7 +56,7 @@ class TestCLI(unittest.TestCase):
         self.assertTrue(args.no_replacements)
         self.assertTrue(args.keep_inline_patterns)
         self.assertTrue(args.keep_empty_lines)
-        self.assertTrue(args.no_crimp_linebreaks)
+        self.assertTrue(args.no_crimping)
 
     def test_main_success(self):
         # Create a test markdown file

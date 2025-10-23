@@ -30,12 +30,13 @@ class CleanerOptions:
 class MarkdownCleaner:
     """Class to handle markdown document cleaning operations."""
 
-    def __init__(self, patterns: CleaningPatterns, options: Optional[CleanerOptions] = None):
+    def __init__(self, patterns: Optional[CleaningPatterns] = None, options: Optional[CleanerOptions] = None):
         """
         Initialize the cleaner with patterns.
 
         Args:
             patterns: CleaningPatterns instance, or None to use defaults
+            options: CleanerOptions instance, or None to use defaults
         """
         self.patterns = patterns or get_default_patterns()
         self.options = options or CleanerOptions()
