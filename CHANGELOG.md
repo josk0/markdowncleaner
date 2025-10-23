@@ -5,7 +5,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## 0.3.0
 
 ### Added
 - **Heuristic reference removal**: Automatically detect and remove bibliographic reference lines based on pattern scoring
@@ -24,13 +24,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Improved section removal patterns (e.g., "Authors' Note", "Note on sources")
   - Additional inline patterns (LaTeX footnotes, trailing ellipsis)
   - Refined keyword and conflict of interest patterns
-- **API**: `MarkdownCleaner` constructor now accepts optional `patterns` parameter (defaults to None for default patterns)
+- **API**: `MarkdownCleaner` constructor `patterns` parameter is now annotated as optional (defaults to None for default patterns)
 - **Linebreak crimping**: Now enabled by default (`crimp_linebreaks: True`)
-- **README**: Comprehensive documentation updates with new features and examples
+- **README**: Updates with new features and examples
 
 ### Fixed
-- Linebreak crimping logic now properly handles various PDF conversion artifacts
-- Test suite updated to match new implementation
+- Linebreak crimping logic now properly handles various PDF conversion artifacts. In previous version it crimped together too happily
+- Test suite updated to match new implementation, mostly just fixing parameter names; bit lazy on adding tests
 
 ## [0.2.0] - 2025-03-XX
 
