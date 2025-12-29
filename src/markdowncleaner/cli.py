@@ -130,20 +130,21 @@ def main(args: Optional[List[str]] = None) -> int:
     parsed_args = parse_args(args)
 
     # Configure cleaner options based on arguments
-    options = CleanerOptions()
-    options.fix_encoding_mojibake = parsed_args.fix_encoding
-    options.normalize_quotation_symbols = parsed_args.normalize_quotation 
-    options.remove_short_lines = not parsed_args.keep_short_lines
-    options.min_line_length = parsed_args.min_line_length
-    options.remove_whole_lines = not parsed_args.keep_bad_lines
-    options.remove_sections = not parsed_args.keep_sections
-    options.remove_duplicate_headlines = not parsed_args.keep_duplicate_headlines
-    options.remove_footnotes_in_text = not parsed_args.keep_footnotes
-    options.replace_within_lines = not parsed_args.no_replacements
-    options.remove_within_lines = not parsed_args.keep_inline_patterns
-    options.contract_empty_lines = not parsed_args.keep_empty_lines
-    options.crimp_linebreaks = not parsed_args.no_crimping
-    options.remove_references_heuristically = not parsed_args.keep_references
+    options = CleanerOptions(
+        fix_encoding_mojibake=parsed_args.fix_encoding,
+        normalize_quotation_symbols=parsed_args.normalize_quotation,
+        remove_short_lines=not parsed_args.keep_short_lines,
+        min_line_length=parsed_args.min_line_length,
+        remove_whole_lines=not parsed_args.keep_bad_lines,
+        remove_sections=not parsed_args.keep_sections,
+        remove_duplicate_headlines=not parsed_args.keep_duplicate_headlines,
+        remove_footnotes_in_text=not parsed_args.keep_footnotes,
+        replace_within_lines=not parsed_args.no_replacements,
+        remove_within_lines=not parsed_args.keep_inline_patterns,
+        contract_empty_lines=not parsed_args.keep_empty_lines,
+        crimp_linebreaks=not parsed_args.no_crimping,
+        remove_references_heuristically=not parsed_args.keep_references,
+    )
 
     # Load patterns from custom config or use defaults
     if parsed_args.config:

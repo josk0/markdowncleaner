@@ -8,9 +8,32 @@ from markdowncleaner.config.loader import get_default_patterns, CleaningPatterns
 
 _logger = logging.getLogger(__name__)
 
+# Pre-compiled quote normalization regexes
+_DOUBLE_QUOTES = ["«", "‹", "»", "›", "„", """, "‟", """, "❝", "❞", "❮", "❯", "〝", "〞", "〟", "＂"]
+_SINGLE_QUOTES = ["'", "‛", "'", "❛", "❜", "`", "´", "'", "'"]
+_DOUBLE_QUOTES_REGEX = re.compile("|".join(_DOUBLE_QUOTES))
+_SINGLE_QUOTES_REGEX = re.compile("|".join(_SINGLE_QUOTES))
+
+
+def _is_list_item(line: str) -> bool:
+    """Check if a line appears to be a list item."""
+    if not line:
+        return False
+    # Starts with list marker
+    if line[0] in '-–—*∙•・◦●○':
+        return True
+    # Contains list punctuation in first 5 chars
+    if any(char in line[:5] for char in '.)*]'):
+        return True
+    # Starts with numeral
+    if line[0].isdigit():
+        return True
+    return False
+
+
 @dataclass
 class CleanerOptions:
-    """Countainer for Cleaner options"""
+    """Container for Cleaner options"""
     fix_encoding_mojibake : bool = False
     normalize_quotation_symbols : bool = False
     remove_short_lines: bool = True
@@ -279,32 +302,8 @@ class MarkdownCleaner:
         Returns:
             str: Text with all single and double quotation symbols replaced with standard ones.
         """
-        double_quotes = [
-            "«",
-            "‹",
-            "»",
-            "›",
-            "„",
-            "“",
-            "‟",
-            "”",
-            "❝",
-            "❞",
-            "❮",
-            "❯",
-            "〝",
-            "〞",
-            "〟",
-            "＂",
-        ]
-        single_quotes = ["‘", "‛", "’", "❛", "❜", "`", "´", "‘", "’"]
-
-        double_quotes_regex = re.compile("|".join(double_quotes))
-        single_quotes_regex = re.compile("|".join(single_quotes))
-
-        text = single_quotes_regex.sub("'", text)
-        text = double_quotes_regex.sub('"', text)
-
+        text = _SINGLE_QUOTES_REGEX.sub("'", text)
+        text = _DOUBLE_QUOTES_REGEX.sub('"', text)
         return text 
 
     def _replace_within_lines(self, text: str, patterns: str | Pattern | list[str | Pattern], replacement: str = '') -> str:
@@ -426,15 +425,15 @@ class MarkdownCleaner:
             line = lines[i].strip()
 
             # Check if line is a first or second level heading
-            if line.startswith(('#', '##')):
+            if line.startswith('#'):
                 # Extract the heading text
-                heading_text = line.lstrip('#').strip() #.lower()
+                heading_text = line.lstrip('#').strip()
 
                 # Check if heading matches the pattern
                 if pattern.search(heading_text):
                     # Skip this heading and find the end of its section
                     i += 1
-                    section_level = line.count('#')
+                    section_level = len(line) - len(line.lstrip('#'))
 
                     # Continue until we find a heading of same or higher level, or end of document
                     while i < len(lines):
@@ -513,25 +512,6 @@ class MarkdownCleaner:
         lines = markdown_text.splitlines()
         result_lines = []
         i = 0
-
-        def _is_list_item(line: str) -> bool:
-            if not line:
-                return False
-            
-            # Check condition 1: starts with list marker
-            if line[0] in '-–—*∙•・◦●○':
-                return True
-            
-            # Check condition 2: contains list punctuation in first 5 chars
-            first_five = line[:5]
-            if any(char in first_five for char in '.)*]'):
-                return True
-            
-            # Check condition 3: starts with numeral
-            if line[0].isdigit():
-                return True
-            
-            return False
 
         while i < len(lines):
             current_line = lines[i].strip()
