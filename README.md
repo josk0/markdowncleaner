@@ -2,9 +2,11 @@
 
 A simple Python tool for cleaning and formatting markdown documents. Default configuration with regex patterns for PDFs of academic papers that have been converted to markdown.
 
+I use this myself in a workflow that processes academic PDFs using [docling](https://github.com/docling-project/docling) or [olmOCR](https://github.com/allenai/olmocr). The default configuration fits that use case.
+
 ## Description
 
-`markdowncleaner` helps you clean up markdown files by removing unwanted content such as:
+`markdowncleaner` removes unwanted content such as:
 - References, bibliographies, and citations (including heuristic detection of bibliographic lines)
 - Footnotes and endnote references in text
 - Copyright notices and legal disclaimers
@@ -14,8 +16,6 @@ A simple Python tool for cleaning and formatting markdown documents. Default con
 - Short lines and excessive whitespace
 - Duplicate headlines (for example, because paper title and author names were reprinted on every page of a PDF)
 - Erroneous line breaks from PDF conversion
-
-This tool is particularly useful for processing academic papers, books, or any markdown document that needs formatting cleanup.
 
 ## Installation
 
