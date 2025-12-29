@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 0.3.1 - 2025-12-28
+
+### Fixed
+- **Heading level detection**: Fixed bug in `_remove_sections` that incorrectly counted all `#` characters instead of only leading ones
+- Fixed typo in CleanerOptions docstring ("Countainer" → "Container")
+
+### Changed
+- **Performance**: Quote normalization regexes now compiled once at module load instead of on each call
+- **Code organization**: Moved `_is_list_item` helper to module level; use dataclass constructor in CLI
+
+### Added
+- Comprehensive regression test suite for all default patterns (test_pattern_regression.py)
+- CONTRIBUTING.md with contribution guidelines
+
 ## 0.3.0 - 2025-10-22
 
 ### Added
