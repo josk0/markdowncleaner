@@ -30,15 +30,17 @@ This is a Python package for cleaning markdown documents, particularly academic 
 - **`src/markdowncleaner/markdowncleaner.py`**: Main `MarkdownCleaner` class and `CleanerOptions` dataclass. The `clean_markdown_string()` method applies cleaning operations in this order:
   1. Encoding fixes (ftfy)
   2. Heuristic bibliographic line removal (scoring-based)
-  3. Short line removal
-  4. Bad line pattern removal
-  5. Section removal (References, Acknowledgements, etc.)
-  6. Duplicate headline removal
-  7. Text replacements (GLYPH fixes, etc.)
-  8. Footnote removal
-  9. Inline pattern removal
-  10. Line break crimping (rejoining PDF-broken lines)
-  11. Empty line contraction
+  3. Multiple space reduction (always applied)
+  4. Quote normalization
+  5. Short line removal
+  6. Bad line pattern removal
+  7. Section removal (References, Acknowledgements, etc.)
+  8. Duplicate headline removal
+  9. Text replacements (GLYPH fixes, etc.)
+  10. Footnote removal
+  11. Inline pattern removal
+  12. Line break crimping (rejoining PDF-broken lines)
+  13. Empty line contraction
 
 - **`src/markdowncleaner/config/loader.py`**: `CleaningPatterns` dataclass that loads regex patterns from YAML. Uses `get_default_patterns()` with caching.
 

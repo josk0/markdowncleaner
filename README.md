@@ -19,6 +19,8 @@ This tool is particularly useful for processing academic papers, books, or any m
 
 ## Installation
 
+Requires Python 3.10 or higher.
+
 ```bash
 pip install markdowncleaner
 ```
