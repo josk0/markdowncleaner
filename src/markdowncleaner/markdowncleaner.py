@@ -439,7 +439,7 @@ class MarkdownCleaner:
                     while i < len(lines):
                         next_line = lines[i].strip()
                         if next_line.startswith('#'):
-                            next_level = next_line.count('#')
+                            next_level = len(next_line) - len(next_line.lstrip('#'))
                             if next_level <= section_level:
                                 break
                         i += 1
