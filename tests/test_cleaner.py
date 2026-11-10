@@ -62,6 +62,20 @@ class TestMarkdownCleaner(unittest.TestCase):
         self.assertIn("# Conclusion", result)
         self.assertNotIn("# References", result)
         self.assertNotIn("1. Author", result)
+
+    def test_remove_sections_keeps_same_level_heading_with_hash(self):
+        # '## C# guide' is a level-2 heading: '#' inside the title must not
+        # count toward the heading level, or the section is wrongly swallowed.
+        text = "## remove-me\n" + \
+               "body text here\n" + \
+               "## C# guide\n" + \
+               "kept content here\n"
+
+        result = self.cleaner._remove_sections(text, "remove-me")
+        self.assertNotIn("remove-me", result)
+        self.assertNotIn("body text here", result)
+        self.assertIn("## C# guide", result)
+        self.assertIn("kept content here", result)
         
     def test_contract_empty_lines(self):
         text = "Line 1\n\n\n\nLine 2"
