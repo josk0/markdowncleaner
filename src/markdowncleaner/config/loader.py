@@ -7,6 +7,7 @@ import logging
 
 _logger = logging.getLogger(__name__)
 
+
 @dataclass
 class CleaningPatterns:
     """Container for document cleaning patterns."""
@@ -20,10 +21,10 @@ class CleaningPatterns:
     def from_yaml(cls, yaml_path: Path) -> 'CleaningPatterns':
         """
         Create a CleaningPatterns instance from a YAML file.
-        
+
         Args:
             yaml_path: Path to the YAML configuration file
-            
+
         Returns:
             CleaningPatterns instance with compiled regex patterns
         """
@@ -53,7 +54,7 @@ class CleaningPatterns:
                 bad_inline_patterns=[compile_pattern(p) for p in inline_patterns],
                 bad_lines_patterns=[compile_pattern(p) for p in line_patterns],
                 footnote_patterns=[compile_pattern(p) for p in footnotes],
-                replacements=replace # just taking this a str dict, no patterns to compile
+                replacements=replace  # just taking this a str dict, no patterns to compile
             )
         except Exception as e:
             _logger.error(f"Error loading cleaning patterns from {yaml_path}: {e}")
@@ -61,6 +62,7 @@ class CleaningPatterns:
 
 
 _cached_patterns: Optional[CleaningPatterns] = None
+
 
 def get_default_patterns() -> CleaningPatterns:
     """Load the default cleaning patterns from the package's configuration file."""

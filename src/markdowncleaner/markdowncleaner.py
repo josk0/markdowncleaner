@@ -39,8 +39,8 @@ def _is_list_item(line: str) -> bool:
 @dataclass
 class CleanerOptions:
     """Container for Cleaner options"""
-    fix_encoding_mojibake : bool = False
-    normalize_quotation_symbols : bool = False
+    fix_encoding_mojibake: bool = False
+    normalize_quotation_symbols: bool = False
     remove_short_lines: bool = True
     min_line_length: int = 70
     remove_whole_lines: bool = True
@@ -122,10 +122,10 @@ class MarkdownCleaner:
             if ftfy.is_bad(content):
                 content = ftfy.fix_text(content)
 
-        # Heuristically detect and remove blocks of lines with bibliographic information 
+        # Heuristically detect and remove blocks of lines with bibliographic information
         if self.options.remove_references_heuristically:
             content = self._remove_bibliographic_lines(content)
-        
+
         # Reduce two or more subsequent spaces to a single space
         content = re.sub(r' {2,}', ' ', content)
 
@@ -144,11 +144,11 @@ class MarkdownCleaner:
         if self.options.remove_sections:
             for title in self.patterns.sections_to_remove:
                 content = self._remove_sections(content, title)
-        
+
         # Remove duplicate headlines
         if self.options.remove_duplicate_headlines:
             content = self._remove_duplicate_headlines(content, self.options.remove_duplicate_headlines_threshold)
-        
+
         # Replace strings for string
         if self.options.replace_within_lines:
             for k, v in self.patterns.replacements.items():
@@ -169,7 +169,7 @@ class MarkdownCleaner:
             content = self._contract_empty_lines(content)
 
         return content
-    
+
     def _remove_bibliographic_lines(self, text: str, score_threshold: int = 3) -> str:
         """
         Remove bibliographic reference lines from text.
@@ -264,11 +264,11 @@ class MarkdownCleaner:
                 score += 1
 
         # 2 point patterns
-        
+
         # Common journal names
         if re.search(r'\b(journal|proceedings|review|quarterly|annals|transactions|bulletin|University Press)\b', line, re.IGNORECASE):
             score += 2
-        
+
         # Author initial and date without brackets separated with dots
         if re.search(r' [A-Za-z]\. \d{4}\. ', line):
             score += 2
@@ -309,7 +309,7 @@ class MarkdownCleaner:
         """
         text = _SINGLE_QUOTES_REGEX.sub("'", text)
         text = _DOUBLE_QUOTES_REGEX.sub('"', text)
-        return text 
+        return text
 
     def _replace_within_lines(self, text: str, patterns: str | Pattern | list[str | Pattern], replacement: str = '') -> str:
         """
@@ -537,10 +537,10 @@ class MarkdownCleaner:
 
         while i < len(lines):
             current_line = lines[i].strip()
-            
+
             # Try to join as many consecutive lines as possible
             while True:
-                
+
                 # Case 1: Connective-based crimping
                 if current_line and current_line.endswith(('-', '–', '—', '...')):
                     # Find next non-empty line within 3 lines (max 2 empty lines between)
@@ -552,52 +552,52 @@ class MarkdownCleaner:
                             j += 1
                         else:
                             break
-                    
+
                     # Check if we found a valid next line
                     if j < len(lines) and lines[j].strip():
                         next_line = lines[j].strip()
-                        
+
                         # Check all conditions
                         if (next_line[0].isalpha() and  # Starts with letter
                             not _is_list_item(next_line) and  # Not a list item
                             '.' in next_line[6:]):  # Contains '.' at position 6 or later
-                            
+
                             # Remove hyphen if present, otherwise add space
                             if current_line.endswith(('-', '–', '—')):
                                 current_line = current_line[:-1] + next_line
                             else:  # ends with '...'
                                 current_line = current_line + ' ' + next_line
-                            
+
                             i = j  # Update i to the last joined line
                             continue
-                
+
                 # Case 2: Justified text crimping
-                if (current_line and 
+                if (current_line and
                     current_line[-1].isalpha() and  # Ends with letter
                     not _ATX_HEADING_REGEX.match(current_line) and  # Not a heading
                     not _is_list_item(current_line)):  # Not a list item
-                    
+
                     # Check immediately next line (L+1)
                     j = i + 1
                     if j < len(lines) and lines[j].strip():
                         next_line = lines[j].strip()
-                        
+
                         # Check all conditions
                         if (next_line[0].isalpha() and  # Starts with letter
                             not _ATX_HEADING_REGEX.match(next_line) and  # Not a heading
                             not _is_list_item(next_line) and  # Not a list item
                             len(next_line) >= 78 and  # Length >= 78
                             abs(len(next_line) - len(current_line)) <= 10):  # Within ±10
-                            
+
                             current_line = current_line + ' ' + next_line
                             i = j  # Update i to the last joined line
                             continue
-                
+
                 # If no joins were made, break the loop
                 break
-            
+
             # Add the fully processed line to results
             result_lines.append(current_line)
             i += 1  # Move to the next line
-        
+
         return '\n'.join(result_lines)

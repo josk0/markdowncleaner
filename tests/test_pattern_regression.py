@@ -10,7 +10,6 @@ Run with: python -m pytest tests/test_pattern_regression.py -v
 
 import unittest
 from markdowncleaner.markdowncleaner import MarkdownCleaner, CleanerOptions
-from markdowncleaner.config.loader import get_default_patterns
 
 
 class TestSectionsToRemove(unittest.TestCase):

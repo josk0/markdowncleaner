@@ -87,5 +87,6 @@ class TestCLI(unittest.TestCase):
         exit_code = main(['nonexistent_file.md'])
         self.assertEqual(exit_code, 1)
 
+
 if __name__ == '__main__':
     unittest.main()

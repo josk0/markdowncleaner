@@ -53,7 +53,7 @@ def parse_args(args: Optional[List[str]] = None) -> argparse.Namespace:
         "--normalize-quotation",
         action="store_true",
         help="Normalize quotation symbols"
-    )    
+    )
 
     parser.add_argument(
         "--keep-short-lines",
