@@ -315,5 +315,187 @@ class TestMarkdownCleaner(unittest.TestCase):
             self.assertNotIn("# References", content)
 
 
+BODY = "This paragraph is substantive body text that is long enough to keep in the output. "
+
+
+def _only(**on):
+    """CleanerOptions with every step off except the named ones."""
+    opts = CleanerOptions(remove_short_lines=False, remove_whole_lines=False, remove_sections=False,
+                          remove_duplicate_headlines=False, remove_footnotes_in_text=False,
+                          replace_within_lines=False, remove_within_lines=False,
+                          contract_empty_lines=False, crimp_linebreaks=False,
+                          remove_references_heuristically=False)
+    for k, v in on.items():
+        setattr(opts, k, v)
+    return opts
+
+
+class TestReviewFixes(unittest.TestCase):
+    """Regression tests for bugs found in the 2026-11 code review."""
+
+    def setUp(self):
+        self.cleaner = MarkdownCleaner()
+
+    # A1: fences and indented headings survive short-line removal
+    def test_code_fence_protects_heading_like_comment_in_default_pipeline(self):
+        doc = ("# Intro\n" + BODY + "\n```python\n# References\nx = 1\n```\n"
+               + BODY.replace("substantive", "after-code") + "\n# Conclusion\n" + BODY)
+        result = self.cleaner.clean_markdown_string(doc)
+        self.assertIn("after-code", result)
+        self.assertIn("```python", result)
+        self.assertIn("x = 1", result)
+
+    def test_short_line_removal_keeps_indented_heading(self):
+        result = self.cleaner._remove_short_lines("  ## Heading\n" + BODY, 70)
+        self.assertIn("  ## Heading", result)
+
+    def test_four_space_indented_hash_is_not_a_heading(self):
+        text = "# Intro\ntext\n    # References\ncode\n# Next\n"
+        result = self.cleaner._remove_sections(text, "References")
+        self.assertIn("code", result)
+
+    # A2: a line like ```x``` does not open a fence
+    def test_inline_triple_backticks_do_not_open_fence(self):
+        text = "```x``` inline\n# References\nref\n```\n# Next\nkept\n"
+        result = self.cleaner._remove_sections(text, "References")
+        self.assertNotIn("ref\n", result)
+        self.assertIn("kept", result)
+
+    # A3: footnote pattern spares decimals and abbreviations
+    def test_footnote_pattern_spares_decimals_and_abbreviations(self):
+        cleaner = MarkdownCleaner(options=_only(remove_footnotes_in_text=True))
+        for text in ["The value of pi is 3.14 and the version is 2.0 here.",
+                     "Figure 3 shows version 3.5 of the model.",
+                     "Eq. 2 shows that the effect is stable.",
+                     "Fig. 2 presents the data."]:
+            self.assertEqual(cleaner.clean_markdown_string(text), text)
+
+    def test_footnote_pattern_still_removes_markers(self):
+        cleaner = MarkdownCleaner(options=_only(remove_footnotes_in_text=True))
+        self.assertNotIn(".12", cleaner.clean_markdown_string("A claim.12 The next one."))
+        self.assertNotIn(".7", cleaner.clean_markdown_string("Last sentence of the line.7\nNext line."))
+
+    # A4: \footnote{...} is removed without inventing a sentence break
+    def test_latex_footnote_removed_without_period(self):
+        text = "The result\\footnote{See appendix.} holds for every specification."
+        self.assertEqual(self.cleaner._replace_within_lines(
+            self.cleaner._replace_within_lines(text, self.cleaner.patterns.footnote_patterns, '. '),
+            self.cleaner.patterns.bad_inline_patterns, ''),
+            "The result holds for every specification.")
+
+    # A5: line joining
+    def test_crimp_keeps_em_and_en_dashes(self):
+        result = self.cleaner._crimp_linebreaks("He paused for a long time—\nand then he left the room. Done.")
+        self.assertEqual(result, "He paused for a long time—and then he left the room. Done.")
+
+    def test_crimp_does_not_join_across_three_blank_lines(self):
+        text = "hyphen-\n\n\n\ncontinued here. Yes."
+        self.assertEqual(self.cleaner._crimp_linebreaks(text), text)
+        self.assertEqual(self.cleaner._crimp_linebreaks("hyphen-\n\n\ncontinued here. Yes."),
+                         "hyphencontinued here. Yes.")
+
+    def test_crimp_does_not_join_thematic_break(self):
+        text = "---\nSome text goes here. More text."
+        self.assertEqual(self.cleaner._crimp_linebreaks(text), text)
+
+    def test_crimp_leaves_code_fences_alone(self):
+        line = "a" * 80
+        text = "```\n    " + line + "\n    " + line + "\n```"
+        self.assertEqual(self.cleaner._crimp_linebreaks(text), text)
+
+    # A6: space collapsing leaves code blocks alone
+    def test_space_collapse_skips_code_fences(self):
+        cleaner = MarkdownCleaner(options=_only())
+        text = "Some  text\n```\n        indented  code\n```"
+        self.assertEqual(cleaner.clean_markdown_string(text), "Some text\n```\n        indented  code\n```")
+
+    # A7, A8, A9: default line patterns
+    def test_line_patterns_keep_ordinary_prose(self):
+        lines = ["This was an important moment for the democratic 1960s movement as described.",
+                 "the results of the experiment show that participants in the treatment group"]
+        for line in lines:
+            self.assertEqual(self.cleaner._remove_whole_lines(line, self.cleaner.patterns.bad_lines_patterns), line)
+
+    def test_line_patterns_still_remove_targets(self):
+        for line in ["c 2020 Elsevier", "INTRODUCTION AND OVERVIEW", "Contact: someone@example.org",
+                     "The author(s) received no financial support for this work."]:
+            self.assertEqual(self.cleaner._remove_whole_lines(line, self.cleaner.patterns.bad_lines_patterns), "")
+
+    def test_acm_reference_format_section_removed(self):
+        text = "## ACM Reference Format\nSome citation text\n## Next\nkept"
+        acm = next(p for p in self.cleaner.patterns.sections_to_remove if p.startswith("ACM"))
+        result = self.cleaner._remove_sections(text, acm)
+        self.assertNotIn("Some citation text", result)
+
+    # A10: closed ATX headings
+    def test_closed_atx_heading_matches_section_pattern(self):
+        result = self.cleaner._remove_sections("## References ##\nA ref\n## Next", r"References\s?\.?$")
+        self.assertEqual(result, "## Next")
+
+    # A11: inline parentheticals need a whole keyword
+    def test_inline_patterns_need_whole_keyword(self):
+        text = "The change (seemingly small) persisted (tableau one) here."
+        self.assertEqual(self.cleaner._replace_within_lines(text, self.cleaner.patterns.bad_inline_patterns, ''), text)
+        self.assertEqual(self.cleaner._replace_within_lines("Works (see above) well.",
+                                                            self.cleaner.patterns.bad_inline_patterns, ''),
+                         "Works  well.")
+
+    # A12: loader and API robustness
+    def test_remove_whole_lines_accepts_string_pattern(self):
+        self.assertEqual(self.cleaner._remove_whole_lines("keep\nbad line\nkeep", r"bad"), "keep\nkeep")
+
+    def test_default_patterns_are_not_shared(self):
+        first = get_default_patterns()
+        saved = list(first.bad_lines_patterns)
+        first.bad_lines_patterns.clear()
+        try:
+            self.assertTrue(get_default_patterns().bad_lines_patterns)
+        finally:
+            first.bad_lines_patterns[:] = saved
+
+    # A13, A14: quote normalization
+    def test_quote_normalization(self):
+        cleaner = MarkdownCleaner(options=_only(normalize_quotation_symbols=True))
+        result = cleaner.clean_markdown_string("“Hello,” she said, ‘it’s `code`.’")
+        self.assertEqual(result, "\"Hello,\" she said, 'it's `code`.'")
+
+    # Round-2 review follow-ups
+    def test_inline_patterns_remove_digit_attached_keyword(self):
+        text = "Results improve (Figure2 shows this) in all cases."
+        self.assertEqual(self.cleaner._replace_within_lines(text, self.cleaner.patterns.bad_inline_patterns, ''),
+                         "Results improve  in all cases.")
+
+    def test_crimp_joins_dash_after_digit(self):
+        result = self.cleaner._crimp_linebreaks("prices from $10–\ntwenty dollars per unit were charged. Yes.")
+        self.assertEqual(result, "prices from $10–twenty dollars per unit were charged. Yes.")
+
+    def test_whole_line_removal_skips_code_fences(self):
+        text = "```bash\npip install https://github.com/org/repo.git\n```"
+        self.assertEqual(self.cleaner._remove_whole_lines(text, self.cleaner.patterns.bad_lines_patterns), text)
+
+    def test_footnote_pattern_spares_abbreviation_before_number(self):
+        cleaner = MarkdownCleaner(options=_only(remove_footnotes_in_text=True))
+        for text in ["The construction appears in Ref. 12 Theorem 2.", "As shown on p. 42 The proof ends.",
+                     "Treatment arm No. 5 The results differ."]:
+            self.assertEqual(cleaner.clean_markdown_string(text), text)
+
+    def test_duplicate_headlines_ignore_closing_sequence(self):
+        result = self.cleaner._remove_duplicate_headlines("## Notes ##\ntext\n## Notes\nmore text", 1)
+        self.assertEqual(result, "text\nmore text")
+
+    def test_four_space_indented_fence_is_not_a_fence(self):
+        text = "    ```\n# References\nref\n    ```\n# Next\nkept"
+        self.assertNotIn("ref", self.cleaner._remove_sections(text, "References"))
+
+    def test_loader_rejects_falsy_non_list(self):
+        from markdowncleaner.config.loader import CleaningPatterns
+        path = Path(tempfile.mkdtemp()) / "c.yaml"
+        path.write_text('bad_lines_patterns: ""\n', encoding="utf-8")
+        with self.assertRaises(TypeError):
+            CleaningPatterns.from_yaml(path)
+        path.write_text("bad_lines_patterns:\n", encoding="utf-8")
+        self.assertEqual(CleaningPatterns.from_yaml(path).bad_lines_patterns, [])
+
+
 if __name__ == '__main__':
     unittest.main()

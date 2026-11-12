@@ -8,16 +8,45 @@ from markdowncleaner.config.loader import get_default_patterns, CleaningPatterns
 
 _logger = logging.getLogger(__name__)
 
-# Pre-compiled quote normalization regexes
-_DOUBLE_QUOTES = ["«", "‹", "»", "›", "„", """, "‟", """, "❝", "❞", "❮", "❯", "〝", "〞", "〟", "＂"]
-_SINGLE_QUOTES = ["'", "‛", "'", "❛", "❜", "`", "´", "'", "'"]
+# Pre-compiled quote normalization regexes. Written as escapes so editors
+# cannot flatten the curly quotes into ASCII. The backtick is not a quote in
+# Markdown (it marks code), so it is left alone.
+_DOUBLE_QUOTES = ["\u00ab", "\u2039", "\u00bb", "\u203a", "\u201e", "\u201c", "\u201f", "\u201d",
+                  "\u275d", "\u275e", "\u276e", "\u276f", "\u301d", "\u301e", "\u301f", "\uff02"]
+_SINGLE_QUOTES = ["\u2018", "\u201b", "\u2019", "\u275b", "\u275c", "\u00b4"]
 _DOUBLE_QUOTES_REGEX = re.compile("|".join(_DOUBLE_QUOTES))
 _SINGLE_QUOTES_REGEX = re.compile("|".join(_SINGLE_QUOTES))
 
-# ATX heading: 1-6 hashes followed by whitespace or end of line (CommonMark)
-_ATX_HEADING_REGEX = re.compile(r'^(#{1,6})(?:\s|$)')
-# Code fence opener/closer: group 1 is the fence, group 2 any info string
-_CODE_FENCE_REGEX = re.compile(r'^(`{3,}|~{3,})(.*)$')
+# ATX heading: up to 3 spaces, 1-6 hashes, then whitespace or end of line (CommonMark)
+_ATX_HEADING_REGEX = re.compile(r'^ {0,3}(#{1,6})(?:\s|$)')
+# ATX closing sequence, e.g. the trailing ' ##' in '## References ##'
+_ATX_CLOSING_REGEX = re.compile(r'\s+#+\s*$')
+# Code fence opener/closer (up to 3 spaces of indentation; 4 is indented code):
+# group 1 is the fence, group 2 any info string.
+# A backtick fence's info string may not contain backticks ('```x```' is inline code).
+_CODE_FENCE_REGEX = re.compile(r'^ {0,3}(`{3,}(?=[^`]*$)|~{3,})(.*)$')
+
+
+def _fence_mask(lines: list[str]) -> list[bool]:
+    """Return, for each line, whether it belongs to a fenced code block (fences included).
+
+    A fence that never closes is treated as stray text, so it does not swallow
+    the rest of the document.
+    """
+    mask = [False] * len(lines)
+    fence = None
+    fence_start = 0
+    for idx, raw_line in enumerate(lines):
+        fence_match = _CODE_FENCE_REGEX.match(raw_line.rstrip())
+        if fence is None:
+            if fence_match:
+                fence = fence_match.group(1)
+                fence_start = idx
+        elif fence_match and fence_match.group(1).startswith(fence) and not fence_match.group(2).strip():
+            for j in range(fence_start, idx + 1):
+                mask[j] = True
+            fence = None
+    return mask
 
 
 def _heading_levels(lines: list[str]) -> list[int]:
@@ -25,25 +54,11 @@ def _heading_levels(lines: list[str]) -> list[int]:
 
     A heading needs a space after its hashes ('#tag' is not one), and lines
     inside fenced code blocks are never headings (a '# comment' in code).
-    A fence that never closes is treated as stray text, so it does not hide
-    later headings.
     """
     levels = []
-    fence = None
-    fence_start = 0
-    for idx, raw_line in enumerate(lines):
-        line = raw_line.strip()
-        heading_match = _ATX_HEADING_REGEX.match(line)
+    for raw_line, in_fence in zip(lines, _fence_mask(lines)):
+        heading_match = None if in_fence else _ATX_HEADING_REGEX.match(raw_line)
         levels.append(len(heading_match.group(1)) if heading_match else 0)
-        fence_match = _CODE_FENCE_REGEX.match(line)
-        if fence is None:
-            if fence_match:
-                fence = fence_match.group(1)
-                fence_start = idx
-        elif fence_match and fence_match.group(1).startswith(fence) and not fence_match.group(2):
-            for j in range(fence_start, idx + 1):
-                levels[j] = 0
-            fence = None
     return levels
 
 
@@ -153,8 +168,10 @@ class MarkdownCleaner:
         if self.options.remove_references_heuristically:
             content = self._remove_bibliographic_lines(content)
 
-        # Reduce two or more subsequent spaces to a single space
-        content = re.sub(r' {2,}', ' ', content)
+        # Reduce two or more subsequent spaces to a single space, outside code blocks
+        lines = content.splitlines(keepends=True)
+        content = ''.join(line if in_fence else re.sub(r' {2,}', ' ', line)
+                          for line, in_fence in zip(lines, _fence_mask(lines)))
 
         # Normalize quotes
         if self.options.normalize_quotation_symbols:
@@ -379,9 +396,11 @@ class MarkdownCleaner:
         lines = multiline_string.splitlines()
 
         # Filter out lines that are shorter than length but that are neither empty nor headings nor with a pattern indicating a markdown list like '1. '
+        # Lines inside fenced code blocks (and the fences themselves) are kept.
         filtered_lines = []
-        for line in lines:
-            if not line.strip() == '' and not _ATX_HEADING_REGEX.match(line) and not re.match(r'^\d{1,2}\.\s', line) and len(line) < length:
+        for line, in_fence in zip(lines, _fence_mask(lines)):
+            if (not in_fence and not line.strip() == '' and not _ATX_HEADING_REGEX.match(line)
+                    and not re.match(r'^\d{1,2}\.\s', line) and len(line) < length):
                 continue
             filtered_lines.append(line)
 
@@ -403,13 +422,15 @@ class MarkdownCleaner:
         # Split the content into lines
         lines = multiline_string.splitlines()
 
-        # Make sure patterns is a list
+        # Make sure patterns is a list of compiled regexes
         if not isinstance(patterns, list):
             patterns = [patterns]
+        patterns = [re.compile(p) if isinstance(p, str) else p for p in patterns]
         # Filter out lines that match any of the patterns, except empty lines
+        # Keep empty lines and lines inside fenced code blocks
         filtered_lines = []
-        for line in lines:
-            if line.strip() == '':  # Keep empty lines
+        for line, in_fence in zip(lines, _fence_mask(lines)):
+            if in_fence or line.strip() == '':
                 filtered_lines.append(line)
                 continue
             if any(pattern.search(line) for pattern in patterns):
@@ -459,8 +480,8 @@ class MarkdownCleaner:
             line = lines[i].strip()
 
             if levels[i]:
-                # Extract the heading text
-                heading_text = line.lstrip('#').strip()
+                # Extract the heading text, without an ATX closing sequence ('## Notes ##')
+                heading_text = _ATX_CLOSING_REGEX.sub('', line.lstrip('#').strip())
 
                 # Check if heading matches the pattern
                 if pattern.search(heading_text):
@@ -503,7 +524,7 @@ class MarkdownCleaner:
 
         for i, line in enumerate(lines):
             if levels[i]:
-                headline_lines.append(line.strip())
+                headline_lines.append(_ATX_CLOSING_REGEX.sub('', line.strip()))
                 headline_indices.append(i)
 
         # Find headlines that occur more than once
@@ -516,7 +537,7 @@ class MarkdownCleaner:
         # Create a new list of lines, excluding the duplicate headlines
         filtered_lines = []
         for i, line in enumerate(lines):
-            if levels[i] and line.strip() in duplicate_headlines:
+            if levels[i] and _ATX_CLOSING_REGEX.sub('', line.strip()) in duplicate_headlines:
                 continue  # Skip duplicate headlines
             else:
                 filtered_lines.append(line)
@@ -539,21 +560,31 @@ class MarkdownCleaner:
             str: Text with crimped linebreaks
         """
         lines = markdown_text.splitlines()
+        in_fence = _fence_mask(lines)
         result_lines = []
         i = 0
 
         while i < len(lines):
+            # Code blocks are passed through unchanged
+            if in_fence[i]:
+                result_lines.append(lines[i])
+                i += 1
+                continue
+
             current_line = lines[i].strip()
 
             # Try to join as many consecutive lines as possible
             while True:
 
-                # Case 1: Connective-based crimping
-                if current_line and current_line.endswith(('-', '–', '—', '...')):
+                # Case 1: Connective-based crimping. A dash after another dash does
+                # not count, so a '---' divider is not joined to the next line.
+                ends_with_dash = (current_line.endswith(('-', '–', '—'))
+                                  and current_line[:-1][-1:] not in ('', '-', '–', '—'))
+                if ends_with_dash or current_line.endswith('...'):
                     # Find next non-empty line within 3 lines (max 2 empty lines between)
                     j = i + 1
                     empty_count = 0
-                    while j < len(lines) and empty_count <= 2:
+                    while j < len(lines) and empty_count < 2:
                         if not lines[j].strip():
                             empty_count += 1
                             j += 1
@@ -561,7 +592,7 @@ class MarkdownCleaner:
                             break
 
                     # Check if we found a valid next line
-                    if j < len(lines) and lines[j].strip():
+                    if j < len(lines) and lines[j].strip() and not in_fence[j]:
                         next_line = lines[j].strip()
 
                         # Check all conditions
@@ -569,9 +600,11 @@ class MarkdownCleaner:
                             not _is_list_item(next_line) and  # Not a list item
                             '.' in next_line[6:]):  # Contains '.' at position 6 or later
 
-                            # Remove hyphen if present, otherwise add space
-                            if current_line.endswith(('-', '–', '—')):
+                            # Drop a soft hyphen; keep en and em dashes; after '...' add a space
+                            if current_line.endswith('-'):
                                 current_line = current_line[:-1] + next_line
+                            elif ends_with_dash:
+                                current_line = current_line + next_line
                             else:  # ends with '...'
                                 current_line = current_line + ' ' + next_line
 
@@ -586,7 +619,7 @@ class MarkdownCleaner:
 
                     # Check immediately next line (L+1)
                     j = i + 1
-                    if j < len(lines) and lines[j].strip():
+                    if j < len(lines) and lines[j].strip() and not in_fence[j]:
                         next_line = lines[j].strip()
 
                         # Check all conditions
