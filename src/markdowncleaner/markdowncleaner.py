@@ -351,10 +351,10 @@ class MarkdownCleaner:
         # Split the content into lines
         lines = multiline_string.splitlines()
 
-        # Filter out lines that are shorter than length but that are neither empty nor start with '#' nor with a pattern indicating a markdown list like '1. '
+        # Filter out lines that are shorter than length but that are neither empty nor headings nor with a pattern indicating a markdown list like '1. '
         filtered_lines = []
         for line in lines:
-            if not line.strip() == '' and not line.startswith('#') and not re.match(r'^\d{1,2}\.\s', line) and len(line) < length:
+            if not line.strip() == '' and not _ATX_HEADING_REGEX.match(line) and not re.match(r'^\d{1,2}\.\s', line) and len(line) < length:
                 continue
             filtered_lines.append(line)
 
@@ -494,7 +494,7 @@ class MarkdownCleaner:
 
         for i, line in enumerate(lines):
             stripped_line = line.strip()
-            if stripped_line and stripped_line.startswith('#'):
+            if stripped_line and _ATX_HEADING_REGEX.match(stripped_line):
                 headline_lines.append(stripped_line)
                 headline_indices.append(i)
 
@@ -509,7 +509,7 @@ class MarkdownCleaner:
         filtered_lines = []
         for i, line in enumerate(lines):
             stripped_line = line.strip()
-            if stripped_line and stripped_line.startswith('#') and stripped_line in duplicate_headlines:
+            if stripped_line and _ATX_HEADING_REGEX.match(stripped_line) and stripped_line in duplicate_headlines:
                 continue  # Skip duplicate headlines
             else:
                 filtered_lines.append(line)
@@ -574,7 +574,7 @@ class MarkdownCleaner:
                 # Case 2: Justified text crimping
                 if (current_line and 
                     current_line[-1].isalpha() and  # Ends with letter
-                    not current_line.startswith('#') and  # Not a heading
+                    not _ATX_HEADING_REGEX.match(current_line) and  # Not a heading
                     not _is_list_item(current_line)):  # Not a list item
                     
                     # Check immediately next line (L+1)
@@ -584,7 +584,7 @@ class MarkdownCleaner:
                         
                         # Check all conditions
                         if (next_line[0].isalpha() and  # Starts with letter
-                            not next_line.startswith('#') and  # Not a heading
+                            not _ATX_HEADING_REGEX.match(next_line) and  # Not a heading
                             not _is_list_item(next_line) and  # Not a list item
                             len(next_line) >= 78 and  # Length >= 78
                             abs(len(next_line) - len(current_line)) <= 10):  # Within ±10

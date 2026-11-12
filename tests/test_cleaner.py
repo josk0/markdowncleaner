@@ -256,6 +256,31 @@ class TestMarkdownCleaner(unittest.TestCase):
                     "More content"
         self.assertEqual(self.cleaner._remove_duplicate_headlines(text_case), text_case)
 
+    def test_remove_short_lines_treats_hash_without_space_as_text(self):
+        # '#tag' is not a heading, so a short '#tag' line is removed like other short text.
+        text = "#tag\n## Short heading\nA long line of body text that is clearly long enough to stay."
+        result = self.cleaner._remove_short_lines(text, 50)
+        self.assertNotIn("#tag", result)
+        self.assertIn("## Short heading", result)
+
+    def test_remove_duplicate_headlines_ignores_hash_without_space(self):
+        # Repeated '#include' lines are not headlines and must be kept.
+        text = "#include <stdio.h>\n## Title\ntext\n#include <stdio.h>\n## Title"
+        result = self.cleaner._remove_duplicate_headlines(text)
+        self.assertEqual(result.count("#include <stdio.h>"), 2)
+        self.assertNotIn("## Title", result)
+
+    def test_crimp_linebreaks_joins_line_starting_with_hash_without_space(self):
+        # A justified line that starts with '#tag' is text, not a heading, so it is joined.
+        first = "#hashtag opens this justified line of body text that runs on long enough here"
+        second = "and this second justified line continues the same long sentence up to its end."
+        result = self.cleaner._crimp_linebreaks(first + "\n" + second)
+        self.assertEqual(result, first + " " + second)
+
+        heading = "## A heading that opens with hashes and runs long enough to look justified"
+        result = self.cleaner._crimp_linebreaks(heading + "\n" + second)
+        self.assertEqual(result, heading + "\n" + second)
+
     def test_crimp_linebreaks(self):
         # Test connective-based crimping (line ending with hyphen)
         text = "This line ends with a hy-\nphenated word that continues."
