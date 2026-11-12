@@ -28,7 +28,7 @@ classifiers = [
 ]
 keywords = ["markdown", "cleaning", "formatting", "text processing"]
 dependencies = [
-    "pyyaml>=6.0",
+    "pyyaml>=6.0.1",
     "ftfy>=6.0.3",
 ]
 requires-python = ">=3.10"
