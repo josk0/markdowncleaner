@@ -76,7 +76,71 @@ class TestMarkdownCleaner(unittest.TestCase):
         self.assertNotIn("body text here", result)
         self.assertIn("## C# guide", result)
         self.assertIn("kept content here", result)
-        
+
+    def test_remove_sections_ignores_hash_without_space(self):
+        # '#tag' is not a heading (CommonMark needs a space after the hashes),
+        # so it must neither end a removed section nor be matched as a title.
+        text = "## remove-me\n" + \
+               "body text here\n" + \
+               "#remove-me too\n" + \
+               "more body\n" + \
+               "## Next\n" + \
+               "kept content here\n"
+
+        result = self.cleaner._remove_sections(text, "remove-me")
+        self.assertNotIn("body text here", result)
+        self.assertNotIn("more body", result)
+        self.assertIn("## Next", result)
+        self.assertIn("kept content here", result)
+
+        result = self.cleaner._remove_sections("#remove-me\nkept\n", "remove-me")
+        self.assertIn("#remove-me", result)
+        self.assertIn("kept", result)
+
+    def test_remove_sections_ignores_hash_lines_in_code_fence(self):
+        # A '# comment' inside a fenced code block must not end the section.
+        text = "## remove-me\n" + \
+               "```python\n" + \
+               "# a comment\n" + \
+               "x = 1\n" + \
+               "```\n" + \
+               "body after code\n" + \
+               "## Next\n" + \
+               "kept content here\n"
+
+        result = self.cleaner._remove_sections(text, "remove-me")
+        self.assertNotIn("# a comment", result)
+        self.assertNotIn("body after code", result)
+        self.assertIn("## Next", result)
+        self.assertIn("kept content here", result)
+
+    def test_remove_sections_keeps_code_fence_comment_matching_pattern(self):
+        # A '# remove-me' comment inside a code fence must not start a removal.
+        text = "## Intro\n" + \
+               "~~~\n" + \
+               "# remove-me\n" + \
+               "code line\n" + \
+               "~~~\n" + \
+               "kept content here\n"
+
+        result = self.cleaner._remove_sections(text, "remove-me")
+        self.assertIn("# remove-me", result)
+        self.assertIn("code line", result)
+        self.assertIn("kept content here", result)
+
+    def test_remove_sections_unclosed_fence_does_not_hide_headings(self):
+        # A stray '```' that never closes must not swallow the rest of the text.
+        text = "## remove-me\n" + \
+               "```\n" + \
+               "body text here\n" + \
+               "## Next\n" + \
+               "kept content here\n"
+
+        result = self.cleaner._remove_sections(text, "remove-me")
+        self.assertNotIn("body text here", result)
+        self.assertIn("## Next", result)
+        self.assertIn("kept content here", result)
+
     def test_contract_empty_lines(self):
         text = "Line 1\n\n\n\nLine 2"
         result = self.cleaner._contract_empty_lines(text)

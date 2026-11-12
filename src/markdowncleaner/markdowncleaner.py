@@ -14,6 +14,11 @@ _SINGLE_QUOTES = ["'", "‛", "'", "❛", "❜", "`", "´", "'", "'"]
 _DOUBLE_QUOTES_REGEX = re.compile("|".join(_DOUBLE_QUOTES))
 _SINGLE_QUOTES_REGEX = re.compile("|".join(_SINGLE_QUOTES))
 
+# ATX heading: 1-6 hashes followed by whitespace or end of line (CommonMark)
+_ATX_HEADING_REGEX = re.compile(r'^(#{1,6})(?:\s|$)')
+# Code fence opener/closer: group 1 is the fence, group 2 any info string
+_CODE_FENCE_REGEX = re.compile(r'^(`{3,}|~{3,})(.*)$')
+
 
 def _is_list_item(line: str) -> bool:
     """Check if a line appears to be a list item."""
@@ -420,28 +425,45 @@ class MarkdownCleaner:
         lines = markdown_text.splitlines()
         result_lines = []
 
+        # Heading level of each line (0 = not a heading). A heading needs a space
+        # after its hashes ('#tag' is not one), and lines inside fenced code
+        # blocks are never headings (a '# comment' in code). A fence that never
+        # closes is treated as stray text, so it does not hide later headings.
+        levels = []
+        fence = None
+        fence_start = 0
+        for idx, raw_line in enumerate(lines):
+            line = raw_line.strip()
+            heading_match = _ATX_HEADING_REGEX.match(line)
+            levels.append(len(heading_match.group(1)) if heading_match else 0)
+            fence_match = _CODE_FENCE_REGEX.match(line)
+            if fence is None:
+                if fence_match:
+                    fence = fence_match.group(1)
+                    fence_start = idx
+            elif fence_match and fence_match.group(1).startswith(fence) and not fence_match.group(2):
+                for j in range(fence_start, idx + 1):
+                    levels[j] = 0
+                fence = None
+
         i = 0
         while i < len(lines):
             line = lines[i].strip()
 
-            # Check if line is a first or second level heading
-            if line.startswith('#'):
+            if levels[i]:
                 # Extract the heading text
                 heading_text = line.lstrip('#').strip()
 
                 # Check if heading matches the pattern
                 if pattern.search(heading_text):
                     # Skip this heading and find the end of its section
+                    section_level = levels[i]
                     i += 1
-                    section_level = len(line) - len(line.lstrip('#'))
 
                     # Continue until we find a heading of same or higher level, or end of document
                     while i < len(lines):
-                        next_line = lines[i].strip()
-                        if next_line.startswith('#'):
-                            next_level = len(next_line) - len(next_line.lstrip('#'))
-                            if next_level <= section_level:
-                                break
+                        if levels[i] and levels[i] <= section_level:
+                            break
                         i += 1
                     continue
 
