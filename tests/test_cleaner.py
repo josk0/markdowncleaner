@@ -270,6 +270,13 @@ class TestMarkdownCleaner(unittest.TestCase):
         self.assertEqual(result.count("#include <stdio.h>"), 2)
         self.assertNotIn("## Title", result)
 
+    def test_remove_duplicate_headlines_ignores_code_fence_comments(self):
+        # A '# comment' repeated inside code blocks is code, not a headline.
+        text = "## Title\n```python\n# setup\nx = 1\n```\n## Title\n~~~\n# setup\n~~~"
+        result = self.cleaner._remove_duplicate_headlines(text)
+        self.assertEqual(result.count("# setup"), 2)
+        self.assertNotIn("## Title", result)
+
     def test_crimp_linebreaks_joins_line_starting_with_hash_without_space(self):
         # A justified line that starts with '#tag' is text, not a heading, so it is joined.
         first = "#hashtag opens this justified line of body text that runs on long enough here"

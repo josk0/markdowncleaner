@@ -20,6 +20,33 @@ _ATX_HEADING_REGEX = re.compile(r'^(#{1,6})(?:\s|$)')
 _CODE_FENCE_REGEX = re.compile(r'^(`{3,}|~{3,})(.*)$')
 
 
+def _heading_levels(lines: list[str]) -> list[int]:
+    """Return the heading level of each line (0 = not a heading).
+
+    A heading needs a space after its hashes ('#tag' is not one), and lines
+    inside fenced code blocks are never headings (a '# comment' in code).
+    A fence that never closes is treated as stray text, so it does not hide
+    later headings.
+    """
+    levels = []
+    fence = None
+    fence_start = 0
+    for idx, raw_line in enumerate(lines):
+        line = raw_line.strip()
+        heading_match = _ATX_HEADING_REGEX.match(line)
+        levels.append(len(heading_match.group(1)) if heading_match else 0)
+        fence_match = _CODE_FENCE_REGEX.match(line)
+        if fence is None:
+            if fence_match:
+                fence = fence_match.group(1)
+                fence_start = idx
+        elif fence_match and fence_match.group(1).startswith(fence) and not fence_match.group(2):
+            for j in range(fence_start, idx + 1):
+                levels[j] = 0
+            fence = None
+    return levels
+
+
 def _is_list_item(line: str) -> bool:
     """Check if a line appears to be a list item."""
     if not line:
@@ -425,26 +452,7 @@ class MarkdownCleaner:
         lines = markdown_text.splitlines()
         result_lines = []
 
-        # Heading level of each line (0 = not a heading). A heading needs a space
-        # after its hashes ('#tag' is not one), and lines inside fenced code
-        # blocks are never headings (a '# comment' in code). A fence that never
-        # closes is treated as stray text, so it does not hide later headings.
-        levels = []
-        fence = None
-        fence_start = 0
-        for idx, raw_line in enumerate(lines):
-            line = raw_line.strip()
-            heading_match = _ATX_HEADING_REGEX.match(line)
-            levels.append(len(heading_match.group(1)) if heading_match else 0)
-            fence_match = _CODE_FENCE_REGEX.match(line)
-            if fence is None:
-                if fence_match:
-                    fence = fence_match.group(1)
-                    fence_start = idx
-            elif fence_match and fence_match.group(1).startswith(fence) and not fence_match.group(2):
-                for j in range(fence_start, idx + 1):
-                    levels[j] = 0
-                fence = None
+        levels = _heading_levels(lines)
 
         i = 0
         while i < len(lines):
@@ -487,15 +495,15 @@ class MarkdownCleaner:
         """
         # Split the text into lines
         lines = markdown_text.splitlines()
+        levels = _heading_levels(lines)
 
-        # Identify headline lines (lines starting with #)
+        # Identify headline lines (headings outside code blocks)
         headline_lines = []
         headline_indices = []
 
         for i, line in enumerate(lines):
-            stripped_line = line.strip()
-            if stripped_line and _ATX_HEADING_REGEX.match(stripped_line):
-                headline_lines.append(stripped_line)
+            if levels[i]:
+                headline_lines.append(line.strip())
                 headline_indices.append(i)
 
         # Find headlines that occur more than once
@@ -508,8 +516,7 @@ class MarkdownCleaner:
         # Create a new list of lines, excluding the duplicate headlines
         filtered_lines = []
         for i, line in enumerate(lines):
-            stripped_line = line.strip()
-            if stripped_line and _ATX_HEADING_REGEX.match(stripped_line) and stripped_line in duplicate_headlines:
+            if levels[i] and line.strip() in duplicate_headlines:
                 continue  # Skip duplicate headlines
             else:
                 filtered_lines.append(line)
