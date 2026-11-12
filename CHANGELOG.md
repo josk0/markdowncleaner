@@ -5,6 +5,25 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 0.4.0 - 2026-11-12
+
+This release fixes several default patterns and heuristics that silently damaged or deleted legitimate text. Cleaned output will differ from 0.3.1.
+
+### Fixed
+- **Footnote removal no longer corrupts numbers**: decimals and numbered references are kept (`3.14`, `version 3.5`, `Eq. 2 shows`, `Ref. 12 Theorem`); footnote markers such as `claim.12 The` are still removed
+- `\footnote{...}` is removed without inserting a sentence break
+- **Heading detection**: a heading needs a space after its hashes (`#tag` is text), may be indented up to 3 spaces, and may have a closing sequence (`## References ##`). Completes the heading-level fix from 0.3.1, which covered only one of two places. Applies to section removal, duplicate-headline removal, short-line removal and line joining
+- **Code blocks are left intact**: short-line removal, whole-line removal, space collapsing and line joining skip fenced code, so a `# comment` in code no longer starts or ends section removal. A line like ` ```x``` ` does not open a fence, and an unclosed fence is ignored
+- **Line joining** keeps en and em dashes (`time—` + `and` → `time—and`), skips at most 2 blank lines, and does not join `---` dividers
+- **Quote normalization** converts curly quotes (`‘ ’ “ ”`) again, and leaves backticks alone
+- Default patterns that deleted ordinary prose: the ALL-CAPS line rule ignored case, `c \d{4}` matched inside words (`democratic 1960s`), `(see` matched `(seemingly`
+- Default patterns that never matched: `ACM Reference Format`, `author(s) received/declared`
+- Config loading: empty or null keys load as empty, non-list values raise a clear error, replacement values are no longer stripped, and `get_default_patterns()` returns a fresh copy so callers cannot change each other's patterns
+
+### Changed
+- Requires `pyyaml>=6.0.1` (6.0 cannot be built on current Python versions)
+- Tested on Python 3.10 to 3.15, and with the lowest allowed dependency versions
+
 ## 0.3.1 - 2025-12-28
 
 ### Fixed
