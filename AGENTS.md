@@ -30,7 +30,7 @@ This is a Python package for cleaning markdown documents, particularly academic 
 - **`src/markdowncleaner/markdowncleaner.py`**: Main `MarkdownCleaner` class and `CleanerOptions` dataclass. The `clean_markdown_string()` method applies cleaning operations in this order:
   1. Encoding fixes (ftfy)
   2. Heuristic bibliographic line removal (scoring-based)
-  3. Multiple space reduction (always applied)
+  3. Multiple space reduction (always applied, outside fenced code)
   4. Quote normalization
   5. Short line removal
   6. Bad line pattern removal
@@ -50,7 +50,10 @@ This is a Python package for cleaning markdown documents, particularly academic 
 
 ### Key Design Patterns
 
-- Patterns are compiled once and cached via `_cached_patterns` global
+- Patterns are compiled once and cached via `_cached_patterns` global; `get_default_patterns()` returns fresh containers, so callers can modify their copy
+- Headings and code blocks are detected in one place: `_fence_mask()` (fenced code, fences included) and `_heading_levels()` (CommonMark ATX headings outside code). Line-based steps use these instead of `startswith('#')`
+- Default patterns are compiled with `re.IGNORECASE`; a rule that depends on case must scope it, e.g. `(?-i:^[A-Z\s]+$)`
+- Keep the package lean: rule-based cleaning, few small dependencies, no NLP/ML models
 - All cleaning operations are toggleable via `CleanerOptions` booleans
 - The bibliographic line scorer (`_score_bibliography_line`) uses a point system to detect reference lines without relying on section headers
 - Line crimping handles both hyphenated word breaks and justified text reflow
